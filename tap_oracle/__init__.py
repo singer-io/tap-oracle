@@ -46,10 +46,10 @@ def main_impl():
     warnings = []
     cursor = connection.cursor()
     cursor.execute("""
-        SELECT id, foo, bar FROM foo_bar
+        SELECT id, foo, bar, timestamp FROM foo_bar
         """)
-    for id, foo, bar in cursor:
-        print("Values:", id, foo, bar)
+    for id, foo, bar, time in cursor:
+        print("Values:", id, foo, bar, time)
  
     # log_server_params(connection)
     # if args.discover:
