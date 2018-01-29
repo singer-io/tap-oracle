@@ -10,24 +10,10 @@ Purpose:        Simple program to process redo log changes
 import cx_Oracle, sys, string, _thread, datetime
 from threading import Lock
 from threading import Thread
+from singer import utils
  
 plock = _thread.allocate_lock()
  
-#set up our time window
-
-# startYear = int(sys.argv[1].split('_')[0])
-# startMonth = int(sys.argv[1].split('_')[1])
-# startDay = int((sys.argv[1].split(' ')[0]).split('_')[2])
-# startHour = int((sys.argv[1].split(' ')[1]).split('_')[4])
-# startMinute = int((sys.argv[1].split(' ')[1]).split(':')[1])
-# startTime=datetime.datetime(startYear, startMonth, startDay, startHour,startMinute, 0)
-
-# endYear = int(sys.argv[2].split('_')[0])
-# endMonth = int(sys.argv[2].split('_')[1])
-# endDay = int((sys.argv[2].split(' ')[0]).split('_')[2])
-# endHour = int((sys.argv[2].split(' ')[1]).split(':')[0])
-# endMinute = int((sys.argv[2].split(' ')[1]).split(':')[1])
-# endTime=datetime.datetime(endYear, endMonth, endDay, endHour, endMinute,0)
 startYear = 2018
 startMonth = 1
 startDay = 23
@@ -36,9 +22,9 @@ startMinute = 0
 startTime=datetime.datetime(startYear, startMonth, startDay, startHour,startMinute, 0)
 
 endYear = 2018
-endMonth = 1
-endDay = 28
-endHour = 10
+endMonth = 2
+endDay = 1
+endHour = 23
 endMinute = 0
 endTime=datetime.datetime(endYear, endMonth, endDay, endHour, endMinute,0)
  
@@ -50,8 +36,8 @@ class readRedoThread(Thread):
     self.t = threadNum
  
   def run(self):
- 
-    conn = cx_Oracle.connect(mode = cx_Oracle.SYSDBA)
+    #dsn = cx_Oracle.makedsn('127.0.0.1', 1521, 'ORCL') 
+    conn = cx_Oracle.connect('root', 'BiouTaSeCtOmPavA', '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SID=ORCL)))')
     cursor = conn.cursor()
     contents = conn.cursor()
  
@@ -80,6 +66,7 @@ class readRedoThread(Thread):
                           and name is not null \
                           and dest_id = 1",[s, s, self.t])
       for row in cursor:
+        print("Row:", row)
         logAdd = conn.cursor()
         try:
             logAdd.execute("begin sys.dbms_logmnr.add_logfile(:1); end;",[row[0]])
@@ -91,20 +78,35 @@ class readRedoThread(Thread):
             #logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog \
                                                                            # dbms_logmnr.print_pretty_sql \
                                                                            # dbms_logmnr.no_rowid_in_stmt); end;")
-            logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog + \
-                                                                            dbms_logmnr.no_rowid_in_stmt); end;")
-            
-            # logStart.execute("describe v$logmnr_contents");
-            # for description in logStart:
-            #     print("Description:", description)
 
-            contents.execute("select * from v$logmnr_contents where thread# = :1", [self.t])
-            for change in contents:
-                print("Change:", change)
-                plock.acquire()
-                plock.release()
+            try:
+                logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog + \
+                                                                                dbms_logmnr.no_rowid_in_stmt); end;")
+
+
+                #contents.execute("select scn, sql_redo, table_name, operation, seg_type_name from v$logmnr_contents where thread# = :1", [self.t])
+                contents.execute("select sql_redo, table_name from v$logmnr_contents where thread# = :1", [self.t])
+                
+                for change in contents:
+                    plock.acquire()
+                    print("SQL redo:", change[0])
+                    #contents.execute("begin sys.dbms_logmnr.mine_value(:1, :2); end;", change[0], change[1])
+                    # for result in contents:
+                    #   print("results:", result)
+                    print("SCN:", change[0])
+                    print("sql redo:", change[1])
+                    # print("table name", change[2])
+                    # print("operation", change[3])
+                    # print("seg_type_name", change[4])
+                    plock.release()
+
+            except:
+                #print("Something bad happened:")
+                pass
+
         except cx_Oracle.DatabaseError as ex:
-            print("Exception at row:", row, ex)
+            pass
+            #print("Exception at row:", row, ex)
 
 
       minutes = datetime.timedelta(minutes=60)
@@ -118,23 +120,28 @@ class readRedoThread(Thread):
 #  pass
  
 #-----------------------------------------------------------------------
- 
-threadList = []
-threadNums = []
- 
-conn = cx_Oracle.connect(mode = cx_Oracle.SYSDBA)
-cursor = conn.cursor()
-cursor.execute("select distinct thread# from v$archived_log where first_time >= :1 and next_time <= :2",[startTime,endTime])
- 
-for row in cursor:
-   threadNums.append(row[0])
-   
-#conn.close()
- 
-for i in threadNums:
-    thisOne = readRedoThread(i)
-    threadList.append(thisOne)
-    thisOne.start()
- 
-for j in threadList:
- j.join()
+
+def get_logs(config):
+    threadList = []
+    threadNums = []
+    global startTime
+    global endTime
+    #startTime = utils.strptime(config["start_date"])
+    #endTime = datetime.datetime.now()
+    #print(startTime)
+
+    conn = cx_Oracle.connect(config["user"], config["password"], cx_Oracle.makedsn(config["host"], config["port"], 'ORCL'))
+    #conn = cx_Oracle.connect(mode = cx_Oracle.SYSDBA)
+    cursor = conn.cursor()
+    cursor.execute("select distinct thread# from v$archived_log where first_time >= :1 and next_time <= :2",[startTime,endTime])
+
+    for row in cursor:
+       threadNums.append(row[0])
+
+    for i in threadNums:
+        thisOne = readRedoThread(i)
+        threadList.append(thisOne)
+        thisOne.start()
+
+    for j in threadList:
+     j.join()

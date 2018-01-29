@@ -11,7 +11,6 @@ import itertools
 from itertools import dropwhile
 import copy
 import ssl
-
 import singer
 import singer.metrics as metrics
 import singer.schema
@@ -19,6 +18,8 @@ from singer import utils
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
 from singer import metadata
+
+from log_miner import get_logs
 
 LOGGER = singer.get_logger()
 
@@ -33,15 +34,18 @@ REQUIRED_CONFIG_KEYS = [
 ]
 
 def make_dsn(config):
-   return cx_Oracle.makedsn('127.0.0.1', 1521, 'ORCL') 
+   return cx_Oracle.makedsn(config["host"], config["port"], 'ORCL') 
 
 def open_connection(config):
-    dsn = make_dsn(config)
-    conn = cx_Oracle.connect(config["user"], config["password"], dsn)
+    conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))
     return conn
 
 def main_impl():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
+    start_date = args.config["start_date"]
+    
+    logs = get_logs(args.config)
+    
     connection = open_connection(args.config)
     warnings = []
     cursor = connection.cursor()
