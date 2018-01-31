@@ -53,65 +53,58 @@ class readRedoThread(Thread):
     global startTime
     global endTime
  
-    s = startTime
-    e = endTime
+  # cursor.execute("select name \
+  #                   from v$archived_log \
+  #                   where first_time between :1 and :2 + 60/1440 \
+  #                     and thread# = :3 \
+  #                     and deleted = 'NO' \
+  #                     and name is not null \
+  #                     and dest_id = 1",[s, s, self.t])
+    try:
+        #logAdd.execute("begin sys.dbms_logmnr.add_logfile(:1); end;",[row[0]])
+        logStart = conn.cursor()
 
-    while s < e:
+        #you may have to use an "offline" catalog if this is being run 
+        #  against a standby database, or against a read-only database.
+        #logStart.execute("begin sys.dbms_logmnr.start_logmnr(dictfilename => :1); end;",["/tmp/dictionary.ora"])
+        #logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog \
+                                                                       # dbms_logmnr.print_pretty_sql \
+                                                                       # dbms_logmnr.no_rowid_in_stmt); end;")
 
-      cursor.execute("select name \
-                        from v$archived_log \
-                        where first_time between :1 and :2 + 60/1440 \
-                          and thread# = :3 \
-                          and deleted = 'NO' \
-                          and name is not null \
-                          and dest_id = 1",[s, s, self.t])
-      for row in cursor:
-        print("Row:", row)
-        logAdd = conn.cursor()
         try:
-            logAdd.execute("begin sys.dbms_logmnr.add_logfile(:1); end;",[row[0]])
-            logStart = conn.cursor()
+            logStart.execute("begin sys.dbms_logmnr.start_logmnr(starttime => TO_DATE('01-JAN-2018', 'DD-MON-YY'), \
+                                                                  options => dbms_logmnr.dict_from_online_catalog + \
+                                                                            dbms_logmnr.print_pretty_sql \
+                                                                            dbms_logmnr.no_rowid_in_stmt); end;")
 
-            #you may have to use an "offline" catalog if this is being run 
-            #  against a standby database, or against a read-only database.
-            #logStart.execute("begin sys.dbms_logmnr.start_logmnr(dictfilename => :1); end;",["/tmp/dictionary.ora"])
-            #logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog \
-                                                                           # dbms_logmnr.print_pretty_sql \
-                                                                           # dbms_logmnr.no_rowid_in_stmt); end;")
+            # logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_redo_logs
+            #                                                                 dbms_logmnr.print_pretty_sql \
+            #                                                                 dbms_logmnr.continuous_mine); end;")                                 
 
-            try:
-                logStart.execute("begin sys.dbms_logmnr.start_logmnr(options => dbms_logmnr.dict_from_online_catalog + \
-                                                                                dbms_logmnr.no_rowid_in_stmt); end;")
+            #contents.execute("select scn, sql_redo, table_name, operation, seg_type_name from v$logmnr_contents where thread# = :1", [self.t])
+            contents.execute("select sql_redo, table_name from v$logmnr_contents where thread# = :1", [self.t])
 
+            for change in contents:
+                plock.acquire()
+                print("SQL redo:", change[0])
+                #contents.execute("begin sys.dbms_logmnr.mine_value(:1, :2); end;", change[0], change[1])
+                # for result in contents:
+                #   print("results:", result)
+                print("SCN:", change[0])
+                print("sql redo:", change[1])
+                # print("table name", change[2])
+                # print("operation", change[3])
+                # print("seg_type_name", change[4])
+                plock.release()
 
-                #contents.execute("select scn, sql_redo, table_name, operation, seg_type_name from v$logmnr_contents where thread# = :1", [self.t])
-                contents.execute("select sql_redo, table_name from v$logmnr_contents where thread# = :1", [self.t])
-                
-                for change in contents:
-                    plock.acquire()
-                    print("SQL redo:", change[0])
-                    #contents.execute("begin sys.dbms_logmnr.mine_value(:1, :2); end;", change[0], change[1])
-                    # for result in contents:
-                    #   print("results:", result)
-                    print("SCN:", change[0])
-                    print("sql redo:", change[1])
-                    # print("table name", change[2])
-                    # print("operation", change[3])
-                    # print("seg_type_name", change[4])
-                    plock.release()
-
-            except:
-                #print("Something bad happened:")
-                pass
-
-        except cx_Oracle.DatabaseError as ex:
+        except:
+            #print("Something bad happened:")
             pass
-            #print("Exception at row:", row, ex)
 
+    except cx_Oracle.DatabaseError as ex:
+        pass
+        #print("Exception at row:", row, ex)
 
-      minutes = datetime.timedelta(minutes=60)
-      s = s + minutes
- 
 #-----------------------------------------------------------------------
  
 # def restoreLogs():
