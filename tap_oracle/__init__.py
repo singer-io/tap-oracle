@@ -19,7 +19,6 @@ from singer import utils
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
 from singer import metadata
-
 from log_miner import get_logs
 
 LOGGER = singer.get_logger()
@@ -33,8 +32,7 @@ Column = collections.namedtuple('Column', [
     "data_type",
     "character_maximum_length",
     "numeric_precision",
-    "numeric_scale",
-    "primary_key"
+    "numeric_scale"
 ])
 
 REQUIRED_CONFIG_KEYS = [
@@ -53,13 +51,8 @@ def open_connection(config):
 
 def schema_for_column(c):
    data_type = c.data_type.lower()
-   inclusion = 'available'
-   if c.primary_key:
-      inclusion = 'automatic'
 
-   result = Schema(inclusion=inclusion)
-   result.type = ['null', 'string']
-
+   result = Schema(type=['null', 'string'])
    return result
 
 def produce_row_counts(conn):
@@ -78,6 +71,61 @@ def produce_constraints(connection):
    #    row_counts[row[0]] = row[1] or 0
 
    # return row_counts
+
+
+def produce_column_metadata(connection, cols, constraints):
+   # inclusion = 'available'
+   # if c.primary_key:
+   #    inclusion = 'automatic'
+
+   #{['AGE']:  {"inclusion" : "automatic", "primary_key" : true}}
+   return {}
+
+def discover_columns(connection, table_info):
+   cur = connection.cursor()
+   cur.execute("""
+                SELECT OWNER,
+                       TABLE_NAME, COLUMN_NAME,
+                       DATA_TYPE, DATA_LENGTH,
+                       DATA_PRECISION, DATA_SCALE
+                       from all_tab_columns
+              """)
+
+
+   columns = []
+   counter = 0
+   rec = cur.fetchone()
+   while rec is not None:
+      columns.append(Column(*rec))
+
+      rec = cur.fetchone()
+
+   constraints = produce_constraints(connection)
+
+   entries = []
+   for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
+      cols = list(cols)
+      (table_schema, table_name) = k
+      schema = Schema(type='object',
+                      properties={c.column_name: schema_for_column(c) for c in cols})
+
+
+      #{['AGE']:  {"inclusion" : "automatic", "primary_key" : true}}
+      md = produce_column_metadata(connection, cols, constraints)
+      entry = CatalogEntry(
+         database=table_schema,
+         table=table_name,
+         stream=table_name,
+         metadata=metadata.to_list(md),
+         tap_stream_id=table_schema + '-' + table_name,
+         schema=schema)
+
+      if table_schema in table_info and table_name in table_info[table_schema]:
+         entry.row_count = table_info[table_schema][table_name].get('row_count')
+         entry.is_view = table_info[table_schema][table_name]['is_view']
+      entries.append(entry)
+
+   return Catalog(entries)
 
 def do_discovery(connection):
    cur = connection.cursor()
@@ -107,54 +155,7 @@ def do_discovery(connection):
         'is_view': True
      }
 
-   cur.execute("""
-                SELECT OWNER,
-                       TABLE_NAME, COLUMN_NAME,
-                       DATA_TYPE, DATA_LENGTH,
-                       DATA_PRECISION, DATA_SCALE
-                       from all_tab_columns
-              """)
-
-
-   columns = []
-   counter = 0
-   rec = cur.fetchone()
-   while rec is not None and counter < 25:
-
-      # pdb.set_trace()
-      data = list(rec)
-      is_primary_key = False
-      data.append(is_primary_key)
-      columns.append(Column(*data))
-
-      ++counter
-      rec = cur.fetchone()
-
-
-   entries = []
-   for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
-      cols = list(cols)
-      (table_schema, table_name) = k
-      schema = Schema(type='object',
-                      properties={c.column_name: schema_for_column(c) for c in cols})
-
-
-      md = []
-      entry = CatalogEntry(
-         database=table_schema,
-         table=table_name,
-         stream=table_name,
-         metadata=md,
-         tap_stream_id=table_schema + '-' + table_name,
-         schema=schema)
-
-      if table_schema in table_info and table_name in table_info[table_schema]:
-         # pdb.set_trace()
-         entry.row_count = table_info[table_schema][table_name].get('row_count')
-         entry.is_view = table_info[table_schema][table_name]['is_view']
-      entries.append(entry)
-
-   return Catalog(entries)
+   return discover_columns(connection, table_info)
 
 def do_sync(connection, catalog, state):
    LOGGER.warn("implement me")
