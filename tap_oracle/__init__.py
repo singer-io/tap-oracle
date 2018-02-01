@@ -26,6 +26,16 @@ LOGGER = singer.get_logger()
 
 import cx_Oracle
 
+Column = collections.namedtuple('Column', [
+    "table_schema",
+    "table_name",
+    "column_name",
+    "data_type",
+    "character_maximum_length",
+    "numeric_precision",
+    "numeric_scale",
+    "primary_key"
+])
 
 REQUIRED_CONFIG_KEYS = [
     'host',
@@ -42,7 +52,15 @@ def open_connection(config):
     return conn
 
 def schema_for_column(c):
-   "finish me"
+   data_type = c.data_type.lower()
+   inclusion = 'available'
+   if c.primary_key:
+      inclusion = 'automatic'
+
+   result = Schema(inclusion=inclusion)
+   result.type = ['null', 'string']
+
+   return result
 
 def produce_row_counts(conn):
    cur = conn.cursor()
@@ -51,6 +69,15 @@ def produce_row_counts(conn):
       row_counts[row[0]] = row[1] or 0
 
    return row_counts
+
+def produce_constraints(connection):
+   return {}
+   # cur = conn.cursor()
+   # contraints = {}
+   # for row in cur.execute("SELECT table_name, num_rows FROM all_constraints").fetchall():
+   #    row_counts[row[0]] = row[1] or 0
+
+   # return row_counts
 
 def do_discovery(connection):
    cur = connection.cursor()
@@ -70,7 +97,6 @@ def do_discovery(connection):
          'is_view': is_view
       }
 
-
    for row in cur.execute("SELECT owner, view_name FROM sys.all_views"):
      view_name = row[1]
      schema = row[0]
@@ -81,17 +107,54 @@ def do_discovery(connection):
         'is_view': True
      }
 
-   pdb.set_trace()
-   #cur.execute("Select * from user_tab_columns where table_name='' order by column_id")
-   #cur.execute("select * from all_tables where table_name='CHICKEN'")
+   cur.execute("""
+                SELECT OWNER,
+                       TABLE_NAME, COLUMN_NAME,
+                       DATA_TYPE, DATA_LENGTH,
+                       DATA_PRECISION, DATA_SCALE
+                       from all_tab_columns
+              """)
 
 
-   #tables_sql = 'select * from all_tables where owner=:1'
-   #tables_statement = 'insert into cx_pets (name, owner, type) values (:1, :2, :3)'
-   #cur.execute(pet_statement, ('Big Red', sandy_id, 'horse'))
-   #stuff = cur.fetchall()
+   columns = []
+   counter = 0
+   rec = cur.fetchone()
+   while rec is not None and counter < 25:
 
-   return None
+      # pdb.set_trace()
+      data = list(rec)
+      is_primary_key = False
+      data.append(is_primary_key)
+      columns.append(Column(*data))
+
+      ++counter
+      rec = cur.fetchone()
+
+
+   entries = []
+   for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
+      cols = list(cols)
+      (table_schema, table_name) = k
+      schema = Schema(type='object',
+                      properties={c.column_name: schema_for_column(c) for c in cols})
+
+
+      md = []
+      entry = CatalogEntry(
+         database=table_schema,
+         table=table_name,
+         stream=table_name,
+         metadata=md,
+         tap_stream_id=table_schema + '-' + table_name,
+         schema=schema)
+
+      if table_schema in table_info and table_name in table_info[table_schema]:
+         # pdb.set_trace()
+         entry.row_count = table_info[table_schema][table_name].get('row_count')
+         entry.is_view = table_info[table_schema][table_name]['is_view']
+      entries.append(entry)
+
+   return Catalog(entries)
 
 def do_sync(connection, catalog, state):
    LOGGER.warn("implement me")

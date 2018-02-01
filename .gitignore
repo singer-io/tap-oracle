@@ -104,3 +104,5 @@ ENV/
 .tramp_history
 
 env-vars.txt
+tap_oracle/__pycache__/
+*~
