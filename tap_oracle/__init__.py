@@ -58,28 +58,55 @@ def schema_for_column(c):
 def produce_row_counts(conn):
    cur = conn.cursor()
    row_counts = {}
-   for row in cur.execute("SELECT table_name, num_rows FROM dba_tables").fetchall():
+   for row in cur.execute("""
+                       SELECT table_name, num_rows
+                         FROM dba_tables
+                        WHERE owner != 'SYS'"""):
       row_counts[row[0]] = row[1] or 0
 
    return row_counts
 
-def produce_constraints(connection):
-   return {}
-   # cur = conn.cursor()
-   # contraints = {}
-   # for row in cur.execute("SELECT table_name, num_rows FROM all_constraints").fetchall():
-   #    row_counts[row[0]] = row[1] or 0
+def produce_constraints(conn):
+   cur = conn.cursor()
+   pk_constraints = {}
+   for schema, table_name, column_name in cur.execute("""
+                      SELECT cols.owner, cols.table_name, cols.column_name
+                       FROM all_constraints cons, all_cons_columns cols
+                      WHERE cons.constraint_type = 'P'
+                       AND cons.constraint_name = cols.constraint_name
+                       AND cons.owner = cols.owner
+                       AND cols.owner != 'SYS'"""):
+     if pk_constraints.get(schema) is None:
+        pk_constraints[schema] = {}
 
-   # return row_counts
+     if pk_constraints[schema].get(table_name) is None:
+        pk_constraints[schema][table_name] = [column_name]
+     else:
+        pk_constraints[schema][table_name].append(column_name)
+
+   return pk_constraints;
 
 
-def produce_column_metadata(connection, cols, constraints):
-   # inclusion = 'available'
-   # if c.primary_key:
-   #    inclusion = 'automatic'
+def produce_column_metadata(connection, table_schema, table_name, pk_constraints):
+   mdata = {}
 
-   #{['AGE']:  {"inclusion" : "automatic", "primary_key" : true}}
-   return {}
+   for c in pk_constraints.get(table_schema, {}).get(table_name, []):
+      metadata.write(mdata, ('properties', c), 'inclusion', 'automatic')
+   # 'REPCAT$_GROUPED_COLUMN': ['POS', 'COLUMN_NAME', 'GROUP_NAME', 'ONAME', 'SNAME']
+
+   #{['properties' 'POS']:  {"inclusion" : "automatic"}}
+   #{['properties' 'COLUMN_NAME']:  {"inclusion" : "automatic"}}
+   #{['properties' 'GROUP_NAME']:  {"inclusion" : "automatic"}}
+   #{['properties' 'ONAME']:  {"inclusion" : "automatic"}}
+   #{['properties' 'SNAME']:  {"inclusion" : "automatic"}}
+
+
+   #{[]:  {"key_properties" : ['POS', 'COLUMN_NAME', 'GROUP_NAME', 'ONAME', 'SNAME']}
+   #{['properties', 'POS'} : {'inclusion': "automatic"}}}
+   #[{'breadcrumb" : ['properties', 'POS',] metadata : "{}"}
+   metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
+   pdb.set_trace()
+   return mdata
 
 def discover_columns(connection, table_info):
    cur = connection.cursor()
@@ -89,6 +116,7 @@ def discover_columns(connection, table_info):
                        DATA_TYPE, DATA_LENGTH,
                        DATA_PRECISION, DATA_SCALE
                        from all_tab_columns
+                 WHERE OWNER != 'SYS'
               """)
 
 
@@ -101,7 +129,6 @@ def discover_columns(connection, table_info):
       rec = cur.fetchone()
 
    constraints = produce_constraints(connection)
-
    entries = []
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
       cols = list(cols)
@@ -111,7 +138,7 @@ def discover_columns(connection, table_info):
 
 
       #{['AGE']:  {"inclusion" : "automatic", "primary_key" : true}}
-      md = produce_column_metadata(connection, cols, constraints)
+      md = produce_column_metadata(connection, table_schema, table_name, constraints)
       entry = CatalogEntry(
          database=table_schema,
          table=table_name,
@@ -132,7 +159,10 @@ def do_discovery(connection):
    row_counts = produce_row_counts(connection)
    table_info = {}
 
-   for row in cur.execute("SELECT owner, table_name FROM all_tables"):
+   for row in cur.execute("""
+                        SELECT owner, table_name
+                         FROM all_tables
+                        WHERE owner != 'SYS'"""):
       schema = row[0]
       table = row[1]
 
@@ -145,7 +175,10 @@ def do_discovery(connection):
          'is_view': is_view
       }
 
-   for row in cur.execute("SELECT owner, view_name FROM sys.all_views"):
+   for row in cur.execute("""
+                         SELECT owner, view_name
+                          FROM sys.all_views
+                         WHERE owner != 'SYS'"""):
      view_name = row[1]
      schema = row[0]
      if schema not in table_info:
