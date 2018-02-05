@@ -92,20 +92,7 @@ def produce_column_metadata(connection, table_schema, table_name, pk_constraints
 
    for c in pk_constraints.get(table_schema, {}).get(table_name, []):
       metadata.write(mdata, ('properties', c), 'inclusion', 'automatic')
-   # 'REPCAT$_GROUPED_COLUMN': ['POS', 'COLUMN_NAME', 'GROUP_NAME', 'ONAME', 'SNAME']
-
-   #{['properties' 'POS']:  {"inclusion" : "automatic"}}
-   #{['properties' 'COLUMN_NAME']:  {"inclusion" : "automatic"}}
-   #{['properties' 'GROUP_NAME']:  {"inclusion" : "automatic"}}
-   #{['properties' 'ONAME']:  {"inclusion" : "automatic"}}
-   #{['properties' 'SNAME']:  {"inclusion" : "automatic"}}
-
-
-   #{[]:  {"key_properties" : ['POS', 'COLUMN_NAME', 'GROUP_NAME', 'ONAME', 'SNAME']}
-   #{['properties', 'POS'} : {'inclusion': "automatic"}}}
-   #[{'breadcrumb" : ['properties', 'POS',] metadata : "{}"}
    metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
-   pdb.set_trace()
    return mdata
 
 def discover_columns(connection, table_info):
@@ -117,8 +104,8 @@ def discover_columns(connection, table_info):
                        DATA_PRECISION, DATA_SCALE
                        from all_tab_columns
                  WHERE OWNER != 'SYS'
+                 ORDER BY owner, table_name
               """)
-
 
    columns = []
    counter = 0
@@ -128,6 +115,7 @@ def discover_columns(connection, table_info):
 
       rec = cur.fetchone()
 
+
    constraints = produce_constraints(connection)
    entries = []
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
@@ -136,8 +124,6 @@ def discover_columns(connection, table_info):
       schema = Schema(type='object',
                       properties={c.column_name: schema_for_column(c) for c in cols})
 
-
-      #{['AGE']:  {"inclusion" : "automatic", "primary_key" : true}}
       md = produce_column_metadata(connection, table_schema, table_name, constraints)
       entry = CatalogEntry(
          database=table_schema,

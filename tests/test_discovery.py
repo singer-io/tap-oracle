@@ -37,19 +37,78 @@ def discover_catalog(connection):
     return catalog
 
 
+def build_col_sql( col):
+    col_sql = "{} {}".format(col['name'], col['type'])
+    if col.get("identity"):
+        col_sql += " GENERATED ALWAYS as IDENTITY(START with 1 INCREMENT by 1)"
+    return col_sql
+
+def build_table(table):
+    create_sql = "CREATE TABLE {}\n".format(table['name'])
+    col_sql = map(build_col_sql, table['columns'])
+    pks = [c['name'] for c in table['columns'] if c.get('primary_key')]
+    if len(pks) != 0:
+        pk_sql = ",\n CONSTRAINT {}_pk  PRIMARY KEY({})".format(table['name'], " ,".join(pks))
+    else:
+       pk_sql = ""
+
+    sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
+    return sql
+
+
+
+# build_table({"columns": [{"name" : "id",    "type" : "integer(10)", "primary_key" : True, "identity" : True},
+#                          {"name" : "age",   "type" : "integer(10)", "primary_key" : True},
+#                          {"name" : "name",  "type": "varchar(255)"}],
+#              "name" : "chicken"})
+
 class TestSimpleTable(unittest.TestCase):
 
+    maxDiff = None
     def setUp(self):
+        table_spec = {"columns": [{"name" : "id",    "type" : "integer", "primary_key" : True, "identity" : True},
+                                  {"name" : '"name-char"',  "type": "char(255)"},
+                                  {"name" : '"name-nchar"',  "type": "nchar(255)"},
+                                  {"name" : '"name-nvarchar2"',  "type": "nvarchar2(255)"},
+                                  {"name" : '"name-varchar1"',  "type": "varchar(255)"},
+                                  {"name" : '"name-varchar2"',  "type": "varchar2(255)"},
+                                  {"name" : 'name_long',  "type": "long"}],
+                      "name" : "CHICKEN"}
+        sql = build_table(table_spec)
+
         with get_test_connection() as conn:
             cur = conn.cursor()
-            cur.execute("DROP TABLE chicken")
-            cur.execute("CREATE TABLE chicken (name varchar(255), age integer)")
-
+            old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
+            if len(old_table) != 0:
+                cur.execute("DROP TABLE {}".format(table_spec['name']))
+            cur.execute(sql)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = discover_catalog(conn)
-            pdb.set_trace()
+            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            self.assertEqual(len(chicken_streams), 1)
+            stream_dict = chicken_streams[0].to_dict()
+
+            self.assertEqual('CHICKEN', stream_dict.get('table_name'))
+            self.assertEqual(False, stream_dict.get('is_view'))
+            self.assertEqual(0, stream_dict.get('row_count'))
+            self.assertEqual('ROOT', stream_dict.get('database_name'))
+            self.assertEqual('CHICKEN', stream_dict.get('stream'))
+            self.assertEqual('ROOT-CHICKEN', stream_dict.get('tap_stream_id'))
+
+            self.assertEqual(2, len(stream_dict.get('metadata')))
+            self.assertIn({'metadata': {'key_properties': ['ID']}, 'breadcrumb': ()}, stream_dict.get('metadata'))
+            self.assertIn({'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')}, stream_dict.get('metadata'))
+
+            self.assertEqual({'properties': {'ID':             {'type': ['null', 'string']},
+                                             'name-char':      {'type': ['null', 'string']},
+                                             'name-nchar':     {'type': ['null', 'string']},
+                                             'name-nvarchar2': {'type': ['null', 'string']},
+                                             'name-varchar1':  {'type': ['null', 'string']},
+                                             'name-varchar2':  {'type': ['null', 'string']},
+                                             'NAME_LONG':        {'type': ['null', 'string']}},
+                              'type': 'object'},  stream_dict.get('schema'))
 
 
 
