@@ -57,11 +57,21 @@ def build_table(table):
 
 
 
-class TestStringTableWithPK(unittest.TestCase):
+def ensure_test_table(table_spec):
+    sql = build_table(table_spec)
 
+    with get_test_connection() as conn:
+        cur = conn.cursor()
+        old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
+        if len(old_table) != 0:
+            cur.execute("DROP TABLE {}".format(table_spec['name']))
+
+        cur.execute(sql)
+
+class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
     def setUp(self):
-        table_spec = {"columns": [{"name" : "id",    "type" : "integer", "primary_key" : True, "identity" : True},
+       table_spec = {"columns": [{"name" : "id",    "type" : "integer", "primary_key" : True, "identity" : True},
                                   {"name" : '"name-char"',  "type": "char(255)"},
                                   {"name" : '"name-nchar"',  "type": "nchar(255)"},
                                   {"name" : '"name-nvarchar2"',  "type": "nvarchar2(255)"},
@@ -69,14 +79,7 @@ class TestStringTableWithPK(unittest.TestCase):
                                   {"name" : '"name-varchar2"',  "type": "varchar2(255)"},
                                   {"name" : 'name_long',  "type": "long"}],
                       "name" : "CHICKEN"}
-        sql = build_table(table_spec)
-
-        with get_test_connection() as conn:
-            cur = conn.cursor()
-            old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
-            if len(old_table) != 0:
-                cur.execute("DROP TABLE {}".format(table_spec['name']))
-            cur.execute(sql)
+       ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -106,9 +109,51 @@ class TestStringTableWithPK(unittest.TestCase):
                               'type': 'object'},  stream_dict.get('schema'))
 
 
+class TestIntegerTableNoPK(unittest.TestCase):
+    maxDiff = None
+
+    def setUp(self):
+       table_spec = {"columns": [# {"name" : "size_number",            "type" : "number"}, DECIMAL
+                                 {"name" : '"size_number_4_0"',      "type" : "number(4,0)"},
+                                 {"name" : '"size_number_*_0"',      "type" : "number(*,0)"},
+                                 {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
+                                 {"name" : '"size_number_integer"',  "type" : "integer"},
+                                 {"name" : '"size_number_int"',      "type" : "int"},
+                                 {"name" : '"size_number_smallint"', "type" : "smallint"}],
+                     "name" : "CHICKEN"}
+       ensure_test_table(table_spec)
+
+    def test_catalog(self):
+        with get_test_connection() as conn:
+            catalog = discover_catalog(conn)
+            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            self.assertEqual(len(chicken_streams), 1)
+            stream_dict = chicken_streams[0].to_dict()
+
+            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 9999999999, 'minimum': -9999999999,
+                                                                                 'type': ['null', 'integer']},
+                                                        'size_number_*_0':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
+                                                                                 'type': ['null', 'integer']},
+                                                        'size_number_integer':  {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
+                                                                                 'type': ['null', 'integer']},
+                                                        'size_number_4_0':      {'maximum': 9999, 'minimum': -9999,
+                                                                                 'type': ['null', 'integer']},
+                                                        'size_number_int':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
+                                                                                 'type': ['null', 'integer']},
+                                                        'size_number_smallint': {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
+                                                                                 'type': ['null', 'integer']}},
+                                         'type': 'object'},
+                              'stream': 'CHICKEN',
+                              'table_name': 'CHICKEN',
+                              'database_name': 'ROOT',
+                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'is_view': False,
+                              'row_count': 0,
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': []}}]},
+                             stream_dict)
 
 
 if __name__== "__main__":
-    test1 = TestStringTableWithPK()
+    test1 = TestIntegerTableNoPK()
     test1.setUp()
     test1.test_catalog()

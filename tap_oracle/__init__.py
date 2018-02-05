@@ -30,6 +30,7 @@ Column = collections.namedtuple('Column', [
     "table_name",
     "column_name",
     "data_type",
+    "data_length",
     "character_maximum_length",
     "numeric_precision",
     "numeric_scale"
@@ -49,8 +50,23 @@ def open_connection(config):
     conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))
     return conn
 
+DEFAULT_NUMERIC_PRECISION=38
+
 def schema_for_column(c):
    data_type = c.data_type.lower()
+   result = Schema()
+
+   # if c.table_name == 'CHICKEN':
+   #    pdb.set_trace()
+
+   if c.data_type == 'NUMBER' and isinstance(c.numeric_scale, int) and c.numeric_scale <= 0:
+      result.type = ['null', 'integer']
+
+      numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
+
+      result.minimum = -1 * (10**numeric_precision - 1)
+      result.maximum = (10**numeric_precision - 1)
+      return result
 
    result = Schema(type=['null', 'string'])
    return result
@@ -92,6 +108,7 @@ def produce_column_metadata(connection, table_schema, table_name, pk_constraints
 
    for c in pk_constraints.get(table_schema, {}).get(table_name, []):
       metadata.write(mdata, ('properties', c), 'inclusion', 'automatic')
+
    metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
    return mdata
 
@@ -100,7 +117,7 @@ def discover_columns(connection, table_info):
    cur.execute("""
                 SELECT OWNER,
                        TABLE_NAME, COLUMN_NAME,
-                       DATA_TYPE, DATA_LENGTH,
+                       DATA_TYPE, DATA_LENGTH, CHAR_LENGTH,
                        DATA_PRECISION, DATA_SCALE
                        from all_tab_columns
                  WHERE OWNER != 'SYS'
