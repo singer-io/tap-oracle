@@ -57,12 +57,7 @@ def build_table(table):
 
 
 
-# build_table({"columns": [{"name" : "id",    "type" : "integer(10)", "primary_key" : True, "identity" : True},
-#                          {"name" : "age",   "type" : "integer(10)", "primary_key" : True},
-#                          {"name" : "name",  "type": "varchar(255)"}],
-#              "name" : "chicken"})
-
-class TestSimpleTable(unittest.TestCase):
+class TestStringTableWithPK(unittest.TestCase):
 
     maxDiff = None
     def setUp(self):
@@ -114,6 +109,6 @@ class TestSimpleTable(unittest.TestCase):
 
 
 if __name__== "__main__":
-    test1 = TestSimpleTable()
+    test1 = TestStringTableWithPK()
     test1.setUp()
     test1.test_catalog()
