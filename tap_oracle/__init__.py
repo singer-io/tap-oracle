@@ -52,7 +52,7 @@ def open_connection(config):
 
 DEFAULT_NUMERIC_PRECISION=38
 
-def schema_for_column(c):
+def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
 
@@ -60,7 +60,10 @@ def schema_for_column(c):
    #    pdb.set_trace()
 
    if c.data_type == 'NUMBER' and isinstance(c.numeric_scale, int) and c.numeric_scale <= 0:
-      result.type = ['null', 'integer']
+      if c.column_name in pks_for_table:
+         result.type = ['integer']
+      else:
+         result.type = ['null', 'integer']
 
       numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
@@ -68,7 +71,11 @@ def schema_for_column(c):
       result.maximum = (10**numeric_precision - 1)
       return result
 
-   result = Schema(type=['null', 'string'])
+   if c.column_name in pks_for_table:
+      result = Schema(type=['string'])
+   else:
+      result = Schema(type=['null', 'string'])
+
    return result
 
 def produce_row_counts(conn):
@@ -138,8 +145,9 @@ def discover_columns(connection, table_info):
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
       cols = list(cols)
       (table_schema, table_name) = k
+      pks_for_table = constraints.get(table_schema, {}).get(table_name, [])
       schema = Schema(type='object',
-                      properties={c.column_name: schema_for_column(c) for c in cols})
+                      properties={c.column_name: schema_for_column(c, pks_for_table) for c in cols})
 
       md = produce_column_metadata(connection, table_schema, table_name, constraints)
       entry = CatalogEntry(

@@ -71,13 +71,13 @@ def ensure_test_table(table_spec):
 class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
     def setUp(self):
-       table_spec = {"columns": [{"name" : "id",    "type" : "integer", "primary_key" : True, "identity" : True},
-                                  {"name" : '"name-char"',  "type": "char(255)"},
-                                  {"name" : '"name-nchar"',  "type": "nchar(255)"},
-                                  {"name" : '"name-nvarchar2"',  "type": "nvarchar2(255)"},
-                                  {"name" : '"name-varchar1"',  "type": "varchar(255)"},
-                                  {"name" : '"name-varchar2"',  "type": "varchar2(255)"},
-                                  {"name" : 'name_long',  "type": "long"}],
+       table_spec = {"columns": [{"name" : "id", "type" : "integer", "primary_key" : True, "identity" : True},
+                                 {"name" : '"name-char"',  "type": "char(255)"},
+                                 {"name" : '"name-nchar"',  "type": "nchar(255)"},
+                                 {"name" : '"name-nvarchar2"',  "type": "nvarchar2(255)"},
+                                 {"name" : '"name-varchar1"',  "type": "varchar(255)"},
+                                 {"name" : '"name-varchar2"',  "type": "varchar2(255)"},
+                                 {"name" : 'name_long',  "type": "long"}],
                       "name" : "CHICKEN"}
        ensure_test_table(table_spec)
 
@@ -99,7 +99,9 @@ class TestStringTableWithPK(unittest.TestCase):
             self.assertIn({'metadata': {'key_properties': ['ID']}, 'breadcrumb': ()}, stream_dict.get('metadata'))
             self.assertIn({'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')}, stream_dict.get('metadata'))
 
-            self.assertEqual({'properties': {'ID':             {'type': ['null', 'string']},
+            self.assertEqual({'properties': {'ID':             {'type': ['integer'],
+                                                                'maximum': 99999999999999999999999999999999999999,
+                                                                'minimum': -99999999999999999999999999999999999999},
                                              'name-char':      {'type': ['null', 'string']},
                                              'name-nchar':     {'type': ['null', 'string']},
                                              'name-nvarchar2': {'type': ['null', 'string']},
@@ -154,6 +156,6 @@ class TestIntegerTableNoPK(unittest.TestCase):
 
 
 if __name__== "__main__":
-    test1 = TestIntegerTableNoPK()
+    test1 = TestStringTableWithPK()
     test1.setUp()
     test1.test_catalog()
