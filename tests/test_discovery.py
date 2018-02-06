@@ -139,11 +139,11 @@ class TestStringTableWithPK(unittest.TestCase):
                               'type': 'object'},  stream_dict.get('schema'))
 
 
-class TestIntegerTableNoPK(unittest.TestCase):
+class TestIntegerTablePK(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-       table_spec = {"columns": [# {"name" : "size_number",            "type" : "number"}, DECIMAL
+       table_spec = {"columns": [{"name" :  "size_pk   ",            "type" : "number(4,0)", "primary_key" : True},
                                  {"name" : '"size_number_4_0"',      "type" : "number(4,0)"},
                                  {"name" : '"size_number_*_0"',      "type" : "number(*,0)"},
                                  {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
@@ -174,7 +174,9 @@ class TestIntegerTableNoPK(unittest.TestCase):
                                                         'size_number_int':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
                                                                                  'type': ['null', 'integer']},
                                                         'size_number_smallint': {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
-                                                                                 'type': ['null', 'integer']}},
+                                                                                 'type': ['null', 'integer']},
+                                                        'SIZE_PK':               {'maximum': 9999, 'minimum': -9999,
+                                                                                  'type': ['integer']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
@@ -182,22 +184,71 @@ class TestIntegerTableNoPK(unittest.TestCase):
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'metadata': {'key_properties': []}, 'breadcrumb': ()},
+                              'metadata': [{'metadata': {'key_properties': ['SIZE_PK']}, 'breadcrumb': ()},
+                                           {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'SIZE_PK')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_*_0')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_4_0')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_int')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_integer')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_smallint')}]},
+
                              stream_dict)
 
 
 
-class TestFloatTableNoPK(unittest.TestCase):
+class TestDecimalPK(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
-       table_spec = {"columns": [{"name" : '"our_float"',                 "type" : "float"},
+       table_spec = {"columns": [{"name" : '"our_number"',                "type" : "number", "primary_key": True},
+                                 {"name" : '"our_number_10_2"',           "type" : "number(10,2)"},
+                                 {"name" : '"our_number_38_4"',           "type" : "number(38,4)"}],
+                     "name" : "CHICKEN"}
+       ensure_test_table(table_spec)
+
+    def test_catalog(self):
+        with get_test_connection() as conn:
+            catalog = discover_catalog(conn)
+            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            self.assertEqual(len(chicken_streams), 1)
+            stream_dict = chicken_streams[0].to_dict()
+            stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
+            self.assertEqual({'schema': {'properties': {'our_number': {'maximum': 99999999999999999999999999999999999999,
+                                                                       'minimum': -99999999999999999999999999999999999999,
+                                                                       'type': [ 'integer']},
+                                                        'our_number_10_2': {'exclusiveMaximum': True,
+                                                                            'exclusiveMinimum': True,
+                                                                            'maximum': 100000000,
+                                                                            'minimum': -100000000,
+                                                                            'multipleOf': 0.01,
+                                                                            'type': ['null', 'number']},
+                                                        'our_number_38_4': {'exclusiveMaximum': True,
+                                                                             'exclusiveMinimum': True,
+                                                                             'maximum': 10000000000000000000000000000000000,
+                                                                             'minimum': -10000000000000000000000000000000000,
+                                                                             'multipleOf': 0.0001,
+                                                                             'type': ['null', 'number']}},
+                                         'type': 'object'},
+                              'stream': 'CHICKEN',
+                              'table_name': 'CHICKEN',
+                              'database_name': 'ROOT',
+                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'is_view': False,
+                              'row_count': 0,
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': ['our_number']}},
+                                           {'breadcrumb': ('properties', 'our_number'), 'metadata': {'inclusion': 'automatic'}},
+                                           {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available'}}]},
+                             stream_dict)
+
+
+
+class TestFloatTablePK(unittest.TestCase):
+    maxDiff = None
+
+    def setUp(self):
+       table_spec = {"columns": [{"name" : '"our_float"',                 "type" : "float", "primary_key": True },
                                  {"name" : '"our_double_precision"',      "type" : "double precision"},
                                  {"name" : '"our_real"',                  "type" : "real"},
                                  {"name" : '"our_binary_float"',          "type" : "binary_float"},
@@ -213,7 +264,7 @@ class TestFloatTableNoPK(unittest.TestCase):
             stream_dict = chicken_streams[0].to_dict()
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['null', 'number']},
+            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['number']},
                                                         'our_double_precision':    {'type': ['null', 'number']},
                                                         'our_real':                {'type': ['null', 'number']},
                                                         'our_binary_float':        {'type': ['null', 'number']},
@@ -225,17 +276,15 @@ class TestFloatTableNoPK(unittest.TestCase):
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': []}},
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': ["our_float"]}},
                                            {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available'}},
-                                           {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'automatic'}},
                                            {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available'}}]},
                              stream_dict)
 
-
-
 if __name__== "__main__":
-    test1 = TestFloatTableNoPK()
+    test1 = TestFloatTablePK()
     test1.setUp()
     test1.test_catalog()

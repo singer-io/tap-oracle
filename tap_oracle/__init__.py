@@ -69,28 +69,43 @@ def open_connection(config):
     return conn
 
 DEFAULT_NUMERIC_PRECISION=38
+DEFAULT_NUMERIC_SCALE=0
 
 def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
 
-   # if c.table_name == 'CHICKEN':
-   #    pdb.set_trace()
 
+   numeric_scale = c.numeric_scale or DEFAULT_NUMERIC_SCALE
+   numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
-   if c.data_type == 'NUMBER' and isinstance(c.numeric_scale, int) and c.numeric_scale <= 0:
+   if data_type == 'number' and numeric_scale <= 0:
       if c.column_name in pks_for_table:
          result.type = ['integer']
       else:
          result.type = ['null', 'integer']
 
-      numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
-
       result.minimum = -1 * (10**numeric_precision - 1)
       result.maximum = (10**numeric_precision - 1)
 
-      if c.numeric_scale < 0:
-         result.multipleOf = -10 * c.numeric_scale
+      if numeric_scale < 0:
+         result.multipleOf = -10 * numeric_scale
+      return result
+
+   elif data_type == 'number':
+      # if c.table_name == 'CHICKEN':
+      #    pdb.set_trace()
+
+      if c.column_name in pks_for_table:
+         result.type = ['number']
+      else:
+         result.type = ['null', 'number']
+
+      result.exclusiveMaximum = True
+      result.maximum = 10 ** (numeric_precision - numeric_scale)
+      result.multipleOf = 10 ** (0 - numeric_scale)
+      result.exclusiveMinimum = True
+      result.minimum = -10 ** (numeric_precision - numeric_scale)
       return result
 
    elif data_type in FLOAT_TYPES:
