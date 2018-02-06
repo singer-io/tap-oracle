@@ -46,6 +46,14 @@ STRING_TYPES = set([
     'long'
 ])
 
+FLOAT_TYPES = set([
+   'float',
+   'real',
+   'double precision',
+   'binary_float',
+   'binary_double'
+])
+
 REQUIRED_CONFIG_KEYS = [
     'host',
     'port',
@@ -69,6 +77,7 @@ def schema_for_column(c, pks_for_table):
    # if c.table_name == 'CHICKEN':
    #    pdb.set_trace()
 
+
    if c.data_type == 'NUMBER' and isinstance(c.numeric_scale, int) and c.numeric_scale <= 0:
       if c.column_name in pks_for_table:
          result.type = ['integer']
@@ -82,6 +91,14 @@ def schema_for_column(c, pks_for_table):
 
       if c.numeric_scale < 0:
          result.multipleOf = -10 * c.numeric_scale
+      return result
+
+   elif data_type in FLOAT_TYPES:
+      if c.column_name in pks_for_table:
+         result.type = ['number']
+      else:
+         result.type = ['null', 'number']
+
       return result
 
    elif data_type in STRING_TYPES:

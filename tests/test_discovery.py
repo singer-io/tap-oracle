@@ -192,7 +192,50 @@ class TestIntegerTableNoPK(unittest.TestCase):
                              stream_dict)
 
 
+
+class TestFloatTableNoPK(unittest.TestCase):
+    maxDiff = None
+
+    def setUp(self):
+       table_spec = {"columns": [{"name" : '"our_float"',                 "type" : "float"},
+                                 {"name" : '"our_double_precision"',      "type" : "double precision"},
+                                 {"name" : '"our_real"',                  "type" : "real"},
+                                 {"name" : '"our_binary_float"',          "type" : "binary_float"},
+                                 {"name" : '"our_binary_double"',         "type" : "binary_double"}],
+                     "name" : "CHICKEN"}
+       ensure_test_table(table_spec)
+
+    def test_catalog(self):
+        with get_test_connection() as conn:
+            catalog = discover_catalog(conn)
+            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            self.assertEqual(len(chicken_streams), 1)
+            stream_dict = chicken_streams[0].to_dict()
+
+            stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
+            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['null', 'number']},
+                                                        'our_double_precision':    {'type': ['null', 'number']},
+                                                        'our_real':                {'type': ['null', 'number']},
+                                                        'our_binary_float':        {'type': ['null', 'number']},
+                                                        'our_binary_double':       {'type': ['null', 'number']}},
+                                         'type': 'object'},
+                              'stream': 'CHICKEN',
+                              'table_name': 'CHICKEN',
+                              'database_name': 'ROOT',
+                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'is_view': False,
+                              'row_count': 0,
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': []}},
+                                           {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'available'}},
+                                           {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available'}}]},
+                             stream_dict)
+
+
+
 if __name__== "__main__":
-    test1 = TestIntegerTableNoPK()
+    test1 = TestFloatTableNoPK()
     test1.setUp()
     test1.test_catalog()
