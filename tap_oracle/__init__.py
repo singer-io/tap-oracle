@@ -31,9 +31,19 @@ Column = collections.namedtuple('Column', [
     "column_name",
     "data_type",
     "data_length",
-    "character_maximum_length",
+    "char_length",
+    "character_used",
     "numeric_precision",
     "numeric_scale"
+])
+
+STRING_TYPES = set([
+    'char',
+    'nchar',
+    'varchar',
+    'varchar2',
+    'nvarchar2',
+    'long'
 ])
 
 REQUIRED_CONFIG_KEYS = [
@@ -71,12 +81,19 @@ def schema_for_column(c, pks_for_table):
       result.maximum = (10**numeric_precision - 1)
       return result
 
-   if c.column_name in pks_for_table:
-      result = Schema(type=['string'])
-   else:
-      result = Schema(type=['null', 'string'])
+   elif data_type in STRING_TYPES:
+      character_used = c.character_used
 
-   return result
+      if c.column_name in pks_for_table:
+         result.type = ['string']
+      else:
+         result.type = ['null', 'string']
+
+      if character_used == 'C':
+         result.maxLength = c.char_length
+      return result
+
+   return Schema(None)
 
 def produce_row_counts(conn):
    cur = conn.cursor()
@@ -89,7 +106,7 @@ def produce_row_counts(conn):
 
    return row_counts
 
-def produce_constraints(conn):
+def produce_pk_constraints(conn):
    cur = conn.cursor()
    pk_constraints = {}
    for schema, table_name, column_name in cur.execute("""
@@ -110,13 +127,23 @@ def produce_constraints(conn):
    return pk_constraints;
 
 
-def produce_column_metadata(connection, table_schema, table_name, pk_constraints):
+def produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas):
    mdata = {}
 
-   for c in pk_constraints.get(table_schema, {}).get(table_name, []):
-      metadata.write(mdata, ('properties', c), 'inclusion', 'automatic')
-
    metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
+
+
+   for c_name in column_schemas:
+      # if table_name == 'CHICKEN' and c_name == 'BAD_COLUMN':
+      #    pdb.set_trace()
+
+      if c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
+         metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
+      elif column_schemas[c_name].type is None:
+         metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
+      else:
+         metadata.write(mdata, ('properties', c_name), 'inclusion', 'available')
+
    return mdata
 
 def discover_columns(connection, table_info):
@@ -124,11 +151,12 @@ def discover_columns(connection, table_info):
    cur.execute("""
                 SELECT OWNER,
                        TABLE_NAME, COLUMN_NAME,
-                       DATA_TYPE, DATA_LENGTH, CHAR_LENGTH,
+                       DATA_TYPE, DATA_LENGTH,
+                       CHAR_LENGTH, CHAR_USED,
                        DATA_PRECISION, DATA_SCALE
                        from all_tab_columns
                  WHERE OWNER != 'SYS'
-                 ORDER BY owner, table_name
+                 ORDER BY owner, table_name, column_name
               """)
 
    columns = []
@@ -140,16 +168,17 @@ def discover_columns(connection, table_info):
       rec = cur.fetchone()
 
 
-   constraints = produce_constraints(connection)
+   pk_constraints = produce_pk_constraints(connection)
    entries = []
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
       cols = list(cols)
       (table_schema, table_name) = k
-      pks_for_table = constraints.get(table_schema, {}).get(table_name, [])
-      schema = Schema(type='object',
-                      properties={c.column_name: schema_for_column(c, pks_for_table) for c in cols})
+      pks_for_table = pk_constraints.get(table_schema, {}).get(table_name, [])
 
-      md = produce_column_metadata(connection, table_schema, table_name, constraints)
+      column_schemas = {c.column_name : schema_for_column(c, pks_for_table) for c in cols}
+      schema = Schema(type='object', properties=column_schemas)
+
+      md = produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas)
       entry = CatalogEntry(
          database=table_schema,
          table=table_name,

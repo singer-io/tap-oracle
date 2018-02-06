@@ -72,12 +72,20 @@ class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
     def setUp(self):
        table_spec = {"columns": [{"name" : "id", "type" : "integer", "primary_key" : True, "identity" : True},
-                                 {"name" : '"name-char"',  "type": "char(255)"},
-                                 {"name" : '"name-nchar"',  "type": "nchar(255)"},
-                                 {"name" : '"name-nvarchar2"',  "type": "nvarchar2(255)"},
-                                 {"name" : '"name-varchar1"',  "type": "varchar(255)"},
-                                 {"name" : '"name-varchar2"',  "type": "varchar2(255)"},
-                                 {"name" : 'name_long',  "type": "long"}],
+                                 #NLS_LENGTH_SEMANTICS = byte
+                                 {"name" : '"name-char-explicit-byte"',  "type": "char(250 byte)"},
+                                 {"name" : '"name-char-explicit-char"',  "type": "char(250 char)"},
+                                 {"name" : '"name-nchar"',               "type": "nchar(123)"},
+                                 {"name" : '"name-nvarchar2"',           "type": "nvarchar2(234)"},
+
+                                 {"name" : '"name-varchar-explicit-byte"',  "type": "varchar(250 byte)"},
+                                 {"name" : '"name-varchar-explicit-char"',  "type": "varchar(251 char)"},
+
+                                 {"name" : '"name-varchar2-explicit-byte"',  "type": "varchar2(250 byte)"},
+                                 {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"},
+
+                                 {"name" : 'name_long',  "type": "long"},
+                                 {"name" : 'bad_column',  "type": "clob"}],
                       "name" : "CHICKEN"}
        ensure_test_table(table_spec)
 
@@ -95,18 +103,38 @@ class TestStringTableWithPK(unittest.TestCase):
             self.assertEqual('CHICKEN', stream_dict.get('stream'))
             self.assertEqual('ROOT-CHICKEN', stream_dict.get('tap_stream_id'))
 
-            self.assertEqual(2, len(stream_dict.get('metadata')))
-            self.assertIn({'metadata': {'key_properties': ['ID']}, 'breadcrumb': ()}, stream_dict.get('metadata'))
-            self.assertIn({'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')}, stream_dict.get('metadata'))
 
-            self.assertEqual({'properties': {'ID':             {'type': ['integer'],
-                                                                'maximum': 99999999999999999999999999999999999999,
-                                                                'minimum': -99999999999999999999999999999999999999},
-                                             'name-char':      {'type': ['null', 'string']},
-                                             'name-nchar':     {'type': ['null', 'string']},
-                                             'name-nvarchar2': {'type': ['null', 'string']},
-                                             'name-varchar1':  {'type': ['null', 'string']},
-                                             'name-varchar2':  {'type': ['null', 'string']},
+            stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
+            self.assertEqual(stream_dict.get('metadata'),
+                             [{'metadata': {'key_properties': ['ID']}, 'breadcrumb': ()},
+                              {'metadata': {'inclusion': 'unsupported'}, 'breadcrumb': ('properties', 'BAD_COLUMN')},
+                              {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'NAME_LONG')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-byte')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-char')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-nchar')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-nvarchar2')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar-explicit-byte')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar-explicit-char')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-byte')},
+                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-char')}])
+
+            self.assertEqual({'properties': {'ID':                      {'type': ['integer'],
+                                                                         'maximum': 99999999999999999999999999999999999999,
+                                                                         'minimum': -99999999999999999999999999999999999999},
+                                             'BAD_COLUMN':              {},
+                                             'name-char-explicit-byte': {'type': ['null', 'string']},
+                                             'name-char-explicit-char': {'type': ['null', 'string'], 'maxLength': 250},
+
+                                             'name-nchar':     {'type': ['null', 'string'], 'maxLength': 123 },
+                                             'name-nvarchar2': {'type': ['null', 'string'], 'maxLength': 234 },
+
+                                             'name-varchar-explicit-byte': {'type': ['null', 'string']},
+                                             'name-varchar-explicit-char': {'type': ['null', 'string'], 'maxLength': 251},
+
+                                             'name-varchar2-explicit-byte': {'type': ['null', 'string']},
+                                             'name-varchar2-explicit-char': {'type': ['null', 'string'], 'maxLength': 251},
+
                                              'NAME_LONG':        {'type': ['null', 'string']}},
                               'type': 'object'},  stream_dict.get('schema'))
 
@@ -132,6 +160,8 @@ class TestIntegerTableNoPK(unittest.TestCase):
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
+            stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
+
             self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 9999999999, 'minimum': -9999999999,
                                                                                  'type': ['null', 'integer']},
                                                         'size_number_*_0':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
@@ -151,11 +181,17 @@ class TestIntegerTableNoPK(unittest.TestCase):
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': []}}]},
+                              'metadata': [{'metadata': {'key_properties': []}, 'breadcrumb': ()},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_*_0')},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_4_0')},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_int')},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_integer')},
+                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_smallint')}]},
                              stream_dict)
 
 
 if __name__== "__main__":
-    test1 = TestStringTableWithPK()
+    test1 = TestIntegerTableNoPK()
     test1.setUp()
     test1.test_catalog()
