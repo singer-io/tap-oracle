@@ -163,7 +163,8 @@ class TestIntegerTableNoPK(unittest.TestCase):
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
             self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 9999999999, 'minimum': -9999999999,
-                                                                                 'type': ['null', 'integer']},
+                                                                                 'type': ['null', 'integer'],
+                                                                                 'multipleOf': 10 },
                                                         'size_number_*_0':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
                                                                                  'type': ['null', 'integer']},
                                                         'size_number_integer':  {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,

@@ -79,6 +79,9 @@ def schema_for_column(c, pks_for_table):
 
       result.minimum = -1 * (10**numeric_precision - 1)
       result.maximum = (10**numeric_precision - 1)
+
+      if c.numeric_scale < 0:
+         result.multipleOf = -10 * c.numeric_scale
       return result
 
    elif data_type in STRING_TYPES:
