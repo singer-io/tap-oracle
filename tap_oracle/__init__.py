@@ -75,6 +75,8 @@ def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
 
+   # if c.table_name == 'CHICKEN':
+   #    pdb.set_trace()
 
    numeric_scale = c.numeric_scale or DEFAULT_NUMERIC_SCALE
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
@@ -93,9 +95,6 @@ def schema_for_column(c, pks_for_table):
       return result
 
    elif data_type == 'number':
-      # if c.table_name == 'CHICKEN':
-      #    pdb.set_trace()
-
       if c.column_name in pks_for_table:
          result.type = ['number']
       else:
@@ -107,6 +106,19 @@ def schema_for_column(c, pks_for_table):
       result.exclusiveMinimum = True
       result.minimum = -10 ** (numeric_precision - numeric_scale)
       return result
+
+   elif data_type == 'date' or data_type.startswith("timestamp"):
+      # if c.table_name == 'CHICKEN':
+      #    pdb.set_trace()
+
+      if c.column_name in pks_for_table:
+         result.type = ['string']
+      else:
+         result.type = ['null', 'string']
+
+      result.format = 'date-time'
+      return result
+
 
    elif data_type in FLOAT_TYPES:
       if c.column_name in pks_for_table:
