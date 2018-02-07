@@ -15,10 +15,9 @@ import ssl
 import singer
 import singer.metrics as metrics
 import singer.schema
-from singer import utils
+from singer import utils, write_message, metadata, get_bookmark
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
-from singer import metadata
 from log_miner import get_logs
 
 LOGGER = singer.get_logger()
@@ -60,6 +59,21 @@ REQUIRED_CONFIG_KEYS = [
     'user',
     'password'
 ]
+
+
+def build_state(old_state, catalog):
+   LOGGER.info('Building new State from old state %s', old_state)
+
+   #TODO: currently_syncing
+
+   #TODO: check if replication keys have changed IFF we support incremental rep
+
+   #TODO: move over SCN
+
+   #TODO: move over version IFF we support incremental rep
+
+   new_state = copy.deepcopy(old_state)
+   return new_state
 
 def make_dsn(config):
    return cx_Oracle.makedsn(config["host"], config["port"], 'ORCL')
@@ -277,9 +291,87 @@ def do_discovery(connection):
 
    return discover_columns(connection, table_info)
 
+# def update_catalog(conn, catalog, state):
+#    # Filter catalog to include only selected streams
+#    streams_to_sync = list(filter(lambda stream: stream.is_selected(), old_catalog.streams))
+
+#    result = Catalog(streams=[])
+#    # merge in selections from existing catalog
+
+
+def should_sync_column(metadata, field_name):
+   if metadata.get(('properties', field_name), {}).get('inclusion') == 'unsupported':
+      return False
+
+   if metadata.get(('properties', field_name), {}).get('selected'):
+      return True
+
+   if metadata.get(('properties', field_name), {}).get('inclusion') == 'automatic':
+      return True
+
+   return False
+
+
+
+def fetch_current_scn(connection):
+   cur = connection.cursor()
+   current_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
+   return current_scn
+
+#logminer steps
+# turn on
+def sync_table(connection, stream, state):
+   end_scn = fetch_current_scn(connection)
+
+   stream_metadata = metadata.to_map(stream.metadata)
+   desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
+   desired_columns.sort()
+
+   cur = connection.cursor()
+   LOGGER.info("starting LogMiner: {}".format(start_logmnr_sql))
+   start_logmnr_sql = """BEGIN
+                         DBMS_LOGMNR.START_LOGMNR(
+                                 startScn => {},
+                                 endScn => {},
+                                 OPTIONS => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG +
+                                            DBMS_LOGMNR.COMMITTED_DATA_ONLY +
+                                            DBMS_LOGMNR.CONTINUOUS_MINE);
+                         END;""".format(get_bookmark(state, stream.tap_stream_id, 'scn'), end_scn)
+
+   #mine changes
+   cur.execute(start_logmnr_sql)
+   cur = connection.cursor()
+   mine_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, '{}.{}."{}"')""".format(stream.database, stream.table, c)
+                                  for c in desired_columns])
+   mine_sql = """
+      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = '{}'
+   """.format(mine_sql_clause, stream.table)
+
+   LOGGER.info('mine_sql: {}'.format(mine_sql))
+   for c in cur.execute(mine_sql):
+      pdb.set_trace()
+
+
 def do_sync(connection, catalog, state):
-   LOGGER.warn("implement me")
-   return false
+   streams_to_sync = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
+
+   for stream in streams_to_sync:
+      #TODO: set currently syncing:
+      #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
+
+      schema_message = singer.SchemaMessage(stream=stream.stream,
+                                             schema=stream.schema.to_dict(),
+                                             key_properties=stream.key_properties,
+                                             bookmark_properties=None)
+      write_message(schema_message)
+
+      with metrics.job_timer('sync_table') as timer:
+         timer.tags['database'] = stream.database
+         timer.tags['table'] = stream.table
+         sync_table(connection, stream, state)
+
+   return False
+
 # start_date = args.config["start_date"]
 
 #     logs = get_logs(args.config)
@@ -299,8 +391,8 @@ def main_impl():
     if args.discover:
         do_discover(connection)
     elif args.catalog:
-        state = build_state(args.state, args.catalog)
-        do_sync(connection, args.catalog, state)
+       state = build_state(args.state, args.catalog)
+       do_sync(connection, args.catalog, state)
     else:
         LOGGER.info("No properties were selected")
 

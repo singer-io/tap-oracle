@@ -9,7 +9,7 @@ setup(name='tap-oracle',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       install_requires=[
-          'singer-python==5.0.2',
+          'singer-python==5.0.4',
           'requests==2.12.4',
  	  'cx_Oracle==6.1'
       ],

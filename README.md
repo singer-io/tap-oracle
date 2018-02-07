@@ -4,11 +4,10 @@ Tap for Oracle
 
 
 you must enable supplmental logging before turning on logminer
-SQL> begin
-  2  rdsadmin.rdsadmin_util.alter_supplemental_logging(
-  3    p_action => 'ADD');
-  4  end;
-  5  /
+ begin
+ rdsadmin.rdsadmin_util.alter_supplemental_logging(
+   p_action => 'ADD');
+ end;
 
 
 begin

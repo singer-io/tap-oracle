@@ -1,72 +1,11 @@
 import unittest
-import os
 import cx_Oracle, sys, string, _thread, datetime
 import tap_oracle
 import pdb
 from singer import get_logger
-
-DB_NAME='test_tap_oracle'
+from tests.utils import get_test_connection, ensure_test_table
 
 LOGGER = get_logger()
-
-def get_test_connection():
-    creds = {}
-    missing_envs = [x for x in [os.getenv('TAP_ORACLE_HOST'),
-                                os.getenv('TAP_ORACLE_USER'),
-                                os.getenv('TAP_ORACLE_PASSWORD'),
-                                os.getenv('TAP_ORACLE_PORT')] if x == None]
-    if len(missing_envs) != 0:
-        #pylint: disable=line-too-long
-        raise Exception("set TAP_ORACLE_HOST, TAP_ORACLE_USER, TAP_ORACLE_PASSWORD, TAP_ORACLE_PORT")
-
-    creds['host'] = os.environ.get('TAP_ORACLE_HOST')
-    creds['user'] = os.environ.get('TAP_ORACLE_USER')
-    creds['password'] = os.environ.get('TAP_ORACLE_PASSWORD')
-    creds['port'] = os.environ.get('TAP_ORACLE_PORT')
-
-    conn_string = '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID=ORCL)))'.format(creds['host'], creds['port'])
-
-    LOGGER.info("{}, {}, {}".format(creds['user'], creds['password'], conn_string))
-    conn = cx_Oracle.connect(creds['user'], creds['password'], conn_string)
-
-    return conn
-
-def discover_catalog(connection):
-    catalog = tap_oracle.do_discovery(connection)
-    # catalog.streams = [s for s in catalog.streams if s.database == DB_NAME]
-    return catalog
-
-
-def build_col_sql( col):
-    col_sql = "{} {}".format(col['name'], col['type'])
-    if col.get("identity"):
-        col_sql += " GENERATED ALWAYS as IDENTITY(START with 1 INCREMENT by 1)"
-    return col_sql
-
-def build_table(table):
-    create_sql = "CREATE TABLE {}\n".format(table['name'])
-    col_sql = map(build_col_sql, table['columns'])
-    pks = [c['name'] for c in table['columns'] if c.get('primary_key')]
-    if len(pks) != 0:
-        pk_sql = ",\n CONSTRAINT {}_pk  PRIMARY KEY({})".format(table['name'], " ,".join(pks))
-    else:
-       pk_sql = ""
-
-    sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
-    return sql
-
-
-
-def ensure_test_table(table_spec):
-    sql = build_table(table_spec)
-
-    with get_test_connection() as conn:
-        cur = conn.cursor()
-        old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
-        if len(old_table) != 0:
-            cur.execute("DROP TABLE {}".format(table_spec['name']))
-
-        cur.execute(sql)
 
 class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
@@ -82,16 +21,13 @@ class TestStringTableWithPK(unittest.TestCase):
                                  {"name" : '"name-varchar-explicit-char"',  "type": "varchar(251 char)"},
 
                                  {"name" : '"name-varchar2-explicit-byte"',  "type": "varchar2(250 byte)"},
-                                 {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"},
-
-                                 {"name" : 'name_long',  "type": "long"},
-                                 {"name" : 'bad_column',  "type": "clob"}],
+                                 {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"}],
                       "name" : "CHICKEN"}
        ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = discover_catalog(conn)
+            catalog = tap_oracle.do_discovery(conn)
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -155,7 +91,7 @@ class TestIntegerTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = discover_catalog(conn)
+            catalog = tap_oracle.do_discovery(conn)
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -209,7 +145,7 @@ class TestDecimalPK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = discover_catalog(conn)
+            catalog = tap_oracle.do_discovery(conn)
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -256,7 +192,7 @@ class TestDatesTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = discover_catalog(conn)
+            catalog = tap_oracle.do_discovery(conn)
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -302,7 +238,7 @@ class TestFloatTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = discover_catalog(conn)
+            catalog = tap_oracle.do_discovery(conn)
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
