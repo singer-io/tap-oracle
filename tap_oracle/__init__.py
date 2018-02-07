@@ -177,6 +177,7 @@ def produce_pk_constraints(conn):
                        AND cons.constraint_name = cols.constraint_name
                        AND cons.owner = cols.owner
                        AND cols.owner != 'SYS'"""):
+
      if pk_constraints.get(schema) is None:
         pk_constraints[schema] = {}
 
@@ -328,7 +329,7 @@ def sync_table(connection, stream, state):
    desired_columns.sort()
 
    cur = connection.cursor()
-   LOGGER.info("starting LogMiner: {}".format(start_logmnr_sql))
+
    start_logmnr_sql = """BEGIN
                          DBMS_LOGMNR.START_LOGMNR(
                                  startScn => {},
@@ -338,13 +339,15 @@ def sync_table(connection, stream, state):
                                             DBMS_LOGMNR.CONTINUOUS_MINE);
                          END;""".format(get_bookmark(state, stream.tap_stream_id, 'scn'), end_scn)
 
-   #mine changes
+   LOGGER.info("starting LogMiner: {}".format(start_logmnr_sql))
    cur.execute(start_logmnr_sql)
+
+   #mine changes
    cur = connection.cursor()
    mine_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, '{}.{}."{}"')""".format(stream.database, stream.table, c)
                                   for c in desired_columns])
    mine_sql = """
-      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = '{}'
+      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = '{}' AND operation in ('INSERT', 'UPDATE', 'DELETE')
    """.format(mine_sql_clause, stream.table)
 
    LOGGER.info('mine_sql: {}'.format(mine_sql))

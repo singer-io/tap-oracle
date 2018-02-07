@@ -108,6 +108,9 @@ class MineStrings(unittest.TestCase):
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             messages = tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
+            #TODO: verify that schema was emitted
+            #TODO: verify that correct record was emitted
+
 if __name__== "__main__":
     test1 = MineStrings()
     test1.setUp()
