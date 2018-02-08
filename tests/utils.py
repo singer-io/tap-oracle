@@ -1,4 +1,4 @@
-from singer import get_logger
+from singer import get_logger, metadata
 import cx_Oracle
 import os
 
@@ -55,3 +55,20 @@ def ensure_test_table(table_spec):
             cur.execute("DROP TABLE {}".format(table_spec['name']))
 
         cur.execute(sql)
+
+
+def select_all_of_stream(stream):
+    selected_metadata = [{'metadata': {'selected': True}, 'breadcrumb': ()}]
+
+    new_md = metadata.to_map(stream.metadata)
+
+
+    old_md = new_md.get(())
+    old_md.update({'selected': True})
+
+    for col_name, col_schema in stream.schema.properties.items():
+        old_md = new_md.get(('properties', col_name))
+        old_md.update({'selected' : True})
+
+    stream.metadatata = metadata.to_list(new_md)
+    return stream

@@ -4,7 +4,7 @@ import cx_Oracle, sys, string, _thread, datetime
 import tap_oracle
 import pdb
 from singer import get_logger, write_message, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream
 
 
 LOGGER = get_logger()
@@ -65,24 +65,10 @@ class MineStrings(unittest.TestCase):
             conn.autocommit = True
             catalog = tap_oracle.do_discovery(conn)
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
-            selected_metadata = [{'metadata': {'selected': True}, 'breadcrumb': ()}]
-
-            new_md = metadata.to_map(chicken_stream.metadata)
-
-
-            old_md = new_md.get(())
-            old_md.update({'selected': True})
-
-            for col_name, col_schema in chicken_stream.schema.properties.items():
-                old_md = new_md.get(('properties', col_name))
-                old_md.update({'selected' : True})
-
-            chicken_stream.metadatata = metadata.to_list(new_md)
+            chicken_stream = select_all_of_stream(chicken_stream)
 
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
-
-            LOGGER.info("previous SCN: {}".format(prev_scn))
             cur.execute("""
             INSERT INTO chicken(
                    "name-char-explicit-byte",
@@ -93,14 +79,39 @@ class MineStrings(unittest.TestCase):
                    "name-varchar-explicit-char",
                    "name-varchar2-explicit-byte",
                    "name-varchar2-explicit-char")
-            values('name-char-explicit-byte X',
-                   'name-char-explicit-char X',
-                   'name-nchar X',
-                   'name-nvarchar2 X',
-                   'name-varchar-explicit-byte X',
-                   'name-varchar-explicit-char X',
-                   'name-varchar2-explicit-byte X',
-                   'name-varchar2-explicit-char X') """)
+            VALUES('name-char-explicit-byte I',
+                   'name-char-explicit-char I',
+                   'name-nchar I',
+                   'name-nvarchar2 I',
+                   'name-varchar-explicit-byte I',
+                   'name-varchar-explicit-char I',
+                   'name-varchar2-explicit-byte I',
+                   'name-varchar2-explicit-char I') """)
+
+            cur.execute("""
+            UPDATE chicken
+            SET
+            "name-char-explicit-byte" = 'name-char-explicit-byte II',
+            "name-char-explicit-char"      = 'name-char-explicit-char II',
+            "name-nchar"                   = 'name-nchar II',
+            "name-nvarchar2"               = 'name-nvarchar2 II',
+            "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte II',
+            "name-varchar-explicit-char"   = 'name-varchar-explicit-char II',
+            "name-varchar2-explicit-byte"  = 'name-varchar2-explicit-byte II',
+            "name-varchar2-explicit-char"  = 'name-varchar2-explicit-char II'
+            WHERE
+            "name-char-explicit-byte"      = 'name-char-explicit-byte I' AND
+            "name-char-explicit-char"      = 'name-char-explicit-char I' AND
+            "name-nchar"                   = 'name-nchar I' AND
+            "name-nvarchar2"               = 'name-nvarchar2 I' AND
+            "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte I' AND
+            "name-varchar-explicit-char"   = 'name-varchar-explicit-char I' AND
+            "name-varchar2-explicit-byte"  = 'name-varchar2-explicit-byte I' AND
+            "name-varchar2-explicit-char"  = 'name-varchar2-explicit-char I'
+ """)
+
+            cur.execute("""
+             DELETE FROM chicken""")
 
             post_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
             LOGGER.info("post SCN: {}".format(post_scn))

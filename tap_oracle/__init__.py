@@ -20,9 +20,17 @@ from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
 from log_miner import get_logs
 
+import tap_oracle.db as orc_db
+
 LOGGER = singer.get_logger()
 
 import cx_Oracle
+LogMinerRow = collections.namedtuple("LogMinerRow", [
+   'operation',
+   'sql_redo'
+
+
+   ])
 
 Column = collections.namedtuple('Column', [
     "table_schema",
@@ -313,14 +321,22 @@ def should_sync_column(metadata, field_name):
    return False
 
 
-
 def fetch_current_scn(connection):
    cur = connection.cursor()
    current_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
    return current_scn
 
-#logminer steps
-# turn on
+
+def sync_insert():
+   "implement me"
+
+def sync_update():
+   "implement me"
+
+def sync_delete():
+   "implement me"
+
+
 def sync_table(connection, stream, state):
    end_scn = fetch_current_scn(connection)
 
@@ -344,14 +360,18 @@ def sync_table(connection, stream, state):
 
    #mine changes
    cur = connection.cursor()
-   mine_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, '{}.{}."{}"')""".format(stream.database, stream.table, c)
-                                  for c in desired_columns])
+   mine_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, :{})""".format(idx+1)
+                                  for idx,c in enumerate(desired_columns)])
+
    mine_sql = """
-      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = '{}' AND operation in ('INSERT', 'UPDATE', 'DELETE')
-   """.format(mine_sql_clause, stream.table)
+      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
+   """.format(mine_sql_clause)
+   binds = [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + [orc_db.quote_identifier(stream.table)]
 
    LOGGER.info('mine_sql: {}'.format(mine_sql))
-   for c in cur.execute(mine_sql):
+   LOGGER.info('mine_binds: {}'.format(binds))
+
+   for c in cur.execute(mine_sql, binds):
       pdb.set_trace()
 
 
