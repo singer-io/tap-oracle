@@ -54,6 +54,7 @@ def ensure_test_table(table_spec):
         if len(old_table) != 0:
             cur.execute("DROP TABLE {}".format(table_spec['name']))
 
+        print(sql)
         cur.execute(sql)
 
 

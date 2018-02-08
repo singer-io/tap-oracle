@@ -15,22 +15,15 @@ import ssl
 import singer
 import singer.metrics as metrics
 import singer.schema
-from singer import utils, write_message, metadata, get_bookmark
+from singer import utils, metadata, get_bookmark
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
 from log_miner import get_logs
-
+import cx_Oracle
 import tap_oracle.db as orc_db
+import tap_oracle.sync_strategies.log_miner as log_miner
 
 LOGGER = singer.get_logger()
-
-import cx_Oracle
-LogMinerRow = collections.namedtuple("LogMinerRow", [
-   'operation',
-   'sql_redo'
-
-
-   ])
 
 Column = collections.namedtuple('Column', [
     "table_schema",
@@ -68,6 +61,14 @@ REQUIRED_CONFIG_KEYS = [
     'password'
 ]
 
+
+def get_stream_version(tap_stream_id, state):
+   stream_version = singer.get_bookmark(state, tap_stream_id, 'version')
+
+   if stream_version is None:
+      stream_version = int(time.time() * 1000)
+
+   return stream_version
 
 def build_state(old_state, catalog):
    LOGGER.info('Building new State from old state %s', old_state)
@@ -321,58 +322,6 @@ def should_sync_column(metadata, field_name):
    return False
 
 
-def fetch_current_scn(connection):
-   cur = connection.cursor()
-   current_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
-   return current_scn
-
-
-def sync_insert():
-   "implement me"
-
-def sync_update():
-   "implement me"
-
-def sync_delete():
-   "implement me"
-
-
-def sync_table(connection, stream, state):
-   end_scn = fetch_current_scn(connection)
-
-   stream_metadata = metadata.to_map(stream.metadata)
-   desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
-   desired_columns.sort()
-
-   cur = connection.cursor()
-
-   start_logmnr_sql = """BEGIN
-                         DBMS_LOGMNR.START_LOGMNR(
-                                 startScn => {},
-                                 endScn => {},
-                                 OPTIONS => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG +
-                                            DBMS_LOGMNR.COMMITTED_DATA_ONLY +
-                                            DBMS_LOGMNR.CONTINUOUS_MINE);
-                         END;""".format(get_bookmark(state, stream.tap_stream_id, 'scn'), end_scn)
-
-   LOGGER.info("starting LogMiner: {}".format(start_logmnr_sql))
-   cur.execute(start_logmnr_sql)
-
-   #mine changes
-   cur = connection.cursor()
-   mine_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, :{})""".format(idx+1)
-                                  for idx,c in enumerate(desired_columns)])
-
-   mine_sql = """
-      SELECT OPERATION, SQL_REDO, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
-   """.format(mine_sql_clause)
-   binds = [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + [orc_db.quote_identifier(stream.table)]
-
-   LOGGER.info('mine_sql: {}'.format(mine_sql))
-   LOGGER.info('mine_binds: {}'.format(binds))
-
-   for c in cur.execute(mine_sql, binds):
-      pdb.set_trace()
 
 
 def do_sync(connection, catalog, state):
@@ -386,27 +335,18 @@ def do_sync(connection, catalog, state):
                                              schema=stream.schema.to_dict(),
                                              key_properties=stream.key_properties,
                                              bookmark_properties=None)
-      write_message(schema_message)
+      singer.write_message(schema_message)
 
+      stream_metadata = metadata.to_map(stream.metadata)
+      desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
+      desired_columns.sort()
+      stream_version = get_stream_version(stream.tap_stream_id, state)
       with metrics.job_timer('sync_table') as timer:
          timer.tags['database'] = stream.database
          timer.tags['table'] = stream.table
-         sync_table(connection, stream, state)
+         log_miner.sync_table(connection, stream, state, desired_columns, stream_version)
 
    return False
-
-# start_date = args.config["start_date"]
-
-#     logs = get_logs(args.config)
-
-#     connection = open_connection(args.config)
-#     warnings = []
-#     cursor = connection.cursor()
-#     cursor.execute("""
-#         SELECT id, foo, bar, timestamp FROM foo_bar
-#         """)
-#     for id, foo, bar, time in cursor:
-#         print("Values:", id, foo, bar, time)
 
 def main_impl():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)

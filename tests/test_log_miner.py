@@ -3,7 +3,8 @@ import os
 import cx_Oracle, sys, string, _thread, datetime
 import tap_oracle
 import pdb
-from singer import get_logger, write_message, metadata, write_bookmark
+import singer
+from singer import get_logger, metadata, write_bookmark
 from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream
 
 
@@ -40,27 +41,23 @@ class MineStrings(unittest.TestCase):
 
 
 
-        table_spec = {"columns": [{"name" : "id", "type" : "integer", "primary_key" : True, "identity" : True},
-                                  {"name" : '"name-char-explicit-byte"',  "type": "char(250 byte)"},
-                                  {"name" : '"name-char-explicit-char"',  "type": "char(250 char)"},
-                                  {"name" : '"name-nchar"',               "type": "nchar(123)"},
-                                  {"name" : '"name-nvarchar2"',           "type": "nvarchar2(234)"},
+        table_spec = {"columns": [{"name" : "id",                            "type" : "integer", "primary_key" : True, "identity" : True},
+                                  {"name" : '"name-char-explicit-byte"',     "type": "char(250 byte)"},
+                                  {"name" : '"name-char-explicit-char"',     "type": "char(250 char)"},
+                                  {"name" : 'name_nchar',                   "type": "nchar(123)"},
+                                  {"name" : '"name-nvarchar2"',              "type": "nvarchar2(234)"},
 
                                   {"name" : '"name-varchar-explicit-byte"',  "type": "varchar(250 byte)"},
                                   {"name" : '"name-varchar-explicit-char"',  "type": "varchar(251 char)"},
 
-                                  {"name" : '"name-varchar2-explicit-byte"',  "type": "varchar2(250 byte)"},
-                                  {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"},
-
-                                  # {"name" : 'name_long',  "type": "long"},
-                                  # {"name" : 'bad_column',  "type": "clob"}
-        ],
+                                  {"name" : '"name-varchar2-explicit-byte"', "type": "varchar2(250 byte)"},
+                                  {"name" : '"name-varchar2-explicit-char"', "type": "varchar2(251 char)"}],
                       "name" : "CHICKEN"}
         ensure_test_table(table_spec)
 
 
     def test_catalog(self):
-        write_message = singer_write_message
+        singer.write_message = singer_write_message
         with get_test_connection() as conn:
             conn.autocommit = True
             catalog = tap_oracle.do_discovery(conn)
@@ -73,7 +70,7 @@ class MineStrings(unittest.TestCase):
             INSERT INTO chicken(
                    "name-char-explicit-byte",
                    "name-char-explicit-char",
-                   "name-nchar",
+                   name_nchar,
                    "name-nvarchar2",
                    "name-varchar-explicit-byte",
                    "name-varchar-explicit-char",
@@ -93,7 +90,7 @@ class MineStrings(unittest.TestCase):
             SET
             "name-char-explicit-byte" = 'name-char-explicit-byte II',
             "name-char-explicit-char"      = 'name-char-explicit-char II',
-            "name-nchar"                   = 'name-nchar II',
+            name_nchar                     = 'name-nchar II',
             "name-nvarchar2"               = 'name-nvarchar2 II',
             "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte II',
             "name-varchar-explicit-char"   = 'name-varchar-explicit-char II',
@@ -102,7 +99,7 @@ class MineStrings(unittest.TestCase):
             WHERE
             "name-char-explicit-byte"      = 'name-char-explicit-byte I' AND
             "name-char-explicit-char"      = 'name-char-explicit-char I' AND
-            "name-nchar"                   = 'name-nchar I' AND
+            name_nchar                     = 'name-nchar I' AND
             "name-nvarchar2"               = 'name-nvarchar2 I' AND
             "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte I' AND
             "name-varchar-explicit-char"   = 'name-varchar-explicit-char I' AND
@@ -117,8 +114,9 @@ class MineStrings(unittest.TestCase):
             LOGGER.info("post SCN: {}".format(post_scn))
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
-            messages = tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
+            pdb.set_trace()
             #TODO: verify that schema was emitted
             #TODO: verify that correct record was emitted
 
