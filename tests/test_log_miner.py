@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures
 import tap_oracle.sync_strategies.log_miner as log_miner
 
 LOGGER = get_logger()
@@ -71,67 +71,18 @@ class MineStrings(unittest.TestCase):
 
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
-            cur.execute("""
-            INSERT INTO chicken(
-                   "name-char-explicit-byte",
-                   "name-char-explicit-char",
-                   name_nchar,
-                   "name-nvarchar2",
-                   "name-varchar-explicit-byte",
-                   "name-varchar-explicit-char",
-                   "name-varchar2-explicit-byte",
-                   "name-varchar2-explicit-char")
-            VALUES('name-char-explicit-byte I',
-                   'name-char-explicit-char I',
-                   'name-nchar I',
-                   'name-nvarchar2 I',
-                   'name-varchar-explicit-byte I',
-                   'name-varchar-explicit-char I',
-                   'name-varchar2-explicit-byte I',
-                   'name-varchar2-explicit-char I') """)
 
-            cur.execute("""
-            UPDATE chicken
-            SET
-            "name-char-explicit-byte" = 'name-char-explicit-byte II',
-            "name-char-explicit-char"      = 'name-char-explicit-char II',
-            name_nchar                     = 'name-nchar II',
-            "name-nvarchar2"               = 'name-nvarchar2 II',
-            "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte II',
-            "name-varchar-explicit-char"   = 'name-varchar-explicit-char II',
-            "name-varchar2-explicit-byte"  = 'name-varchar2-explicit-byte II',
-            "name-varchar2-explicit-char"  = 'name-varchar2-explicit-char II'
-            WHERE
-            "name-char-explicit-byte"      = 'name-char-explicit-byte I' AND
-            "name-char-explicit-char"      = 'name-char-explicit-char I' AND
-            name_nchar                     = 'name-nchar I' AND
-            "name-nvarchar2"               = 'name-nvarchar2 I' AND
-            "name-varchar-explicit-byte"   = 'name-varchar-explicit-byte I' AND
-            "name-varchar-explicit-char"   = 'name-varchar-explicit-char I' AND
-            "name-varchar2-explicit-byte"  = 'name-varchar2-explicit-byte I' AND
-            "name-varchar2-explicit-char"  = 'name-varchar2-explicit-char I'
- """)
-
-            cur.execute("""
-            INSERT INTO chicken(
-                   "name-char-explicit-byte",
-                   "name-char-explicit-char",
-                   name_nchar,
-                   "name-nvarchar2",
-                   "name-varchar-explicit-byte",
-                   "name-varchar-explicit-char",
-                   "name-varchar2-explicit-byte",
-                   "name-varchar2-explicit-char")
-            VALUES('name-char-explicit-byte III',
-                   'name-char-explicit-char III',
-                   'name-nchar III',
-                   'name-nvarchar2 III',
-                   'name-varchar-explicit-byte III',
-                   'name-varchar-explicit-char III',
-                   'name-varchar2-explicit-byte III',
-                   'name-varchar2-explicit-char III') """)
-
-            cur.execute(""" DELETE FROM chicken""")
+            crud_up_log_miner_fixtures(cur, 'CHICKEN',
+                                       {
+                                           '"name-char-explicit-byte"':'name-char-explicit-byte I',
+                                           '"name-char-explicit-char"':'name-char-explicit-char I',
+                                           'name_nchar'               :  'name-nchar I',
+                                           '"name-nvarchar2"'         : 'name-nvarchar2 I',
+                                           '"name-varchar-explicit-byte"' : 'name-varchar-explicit-byte I',
+                                           '"name-varchar-explicit-char"' : 'name-varchar-explicit-char I',
+                                           '"name-varchar2-explicit-byte"': 'name-varchar2-explicit-byte I',
+                                           '"name-varchar2-explicit-char"': 'name-varchar2-explicit-char I'
+                                       }, lambda s: s.replace("I", "II"))
 
             post_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
             LOGGER.info("post SCN: {}".format(post_scn))
@@ -162,12 +113,12 @@ class MineStrings(unittest.TestCase):
             self.assertIsNotNone(rec1.get('scn'))
             rec1.pop('scn')
             self.assertEqual(rec1, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte I',
-                                                 'name-char-explicit-char': 'name-char-explicit-char I                                                                                                                                                                                                                                 ',
-                                                 'name-nvarchar2': 'name-nvarchar2 I', 'name-varchar-explicit-char': 'name-varchar-explicit-char I',
-                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
-                                                 'NAME_NCHAR': 'name-nchar I                                                                                                               ',
-                                                 'name-char-explicit-byte': 'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
-                                                 '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '1'})
+                                    'name-char-explicit-char': 'name-char-explicit-char I                                                                                                                                                                                                                                 ',
+                                    'name-nvarchar2': 'name-nvarchar2 I', 'name-varchar-explicit-char': 'name-varchar-explicit-char I',
+                                    'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
+                                    'NAME_NCHAR': 'name-nchar I                                                                                                               ',
+                                    'name-char-explicit-byte': 'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
+                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '1'})
 
 
             #verify message 2 (state)
@@ -183,12 +134,12 @@ class MineStrings(unittest.TestCase):
             self.assertIsNotNone(rec2.get('scn'))
             rec2.pop('scn')
             self.assertEqual(rec2, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
-                                                 'name-char-explicit-char': 'name-char-explicit-char II                                                                                                                                                                                                                                ',
-                                                 'name-nvarchar2': 'name-nvarchar2 II', 'name-varchar-explicit-char': 'name-varchar-explicit-char II',
-                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
-                                                 'NAME_NCHAR': 'name-nchar II                                                                                                              ',
-                                                 'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
-                                                 '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
+                                    'name-char-explicit-char': 'name-char-explicit-char II                                                                                                                                                                                                                                ',
+                                    'name-nvarchar2': 'name-nvarchar2 II', 'name-varchar-explicit-char': 'name-varchar-explicit-char II',
+                                    'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
+                                    'NAME_NCHAR': 'name-nchar II                                                                                                              ',
+                                    'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
+                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
 
 
             #verify message 4 (state)
@@ -222,18 +173,17 @@ class MineStrings(unittest.TestCase):
             self.assertIsNotNone(rec4.get('_sdc_deleted_at'))
             rec4.pop('scn')
             rec4.pop('_sdc_deleted_at')
-            self.assertEqual(rec4, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte III',
-                                                 'name-char-explicit-char': 'name-char-explicit-char III                                                                                                                                                                                                                               ',
-                                                 'name-nvarchar2': 'name-nvarchar2 III', 'name-varchar-explicit-char': 'name-varchar-explicit-char III',
-                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char III',
-                                                 'NAME_NCHAR': 'name-nchar III                                                                                                             ',
-                                                 'name-char-explicit-byte': 'name-char-explicit-byte III                                                                                                                                                                                                                               ',
-                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte III', 'ID': '2'})
+            self.assertEqual(rec4, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte I',
+                                                 'name-char-explicit-char': 'name-char-explicit-char I                                                                                                                                                                                                                                 ',
+                                                 'name-nvarchar2': 'name-nvarchar2 I',
+                                                 'name-varchar-explicit-char': 'name-varchar-explicit-char I',
+                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
+                                                 'NAME_NCHAR': 'name-nchar I                                                                                                               ',
+                                                 'name-char-explicit-byte': 'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
+                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '2'})
 
 
 
-            #TODO: verify that schema was emitted
-            #TODO: verify that correct record was emitted
 
 if __name__== "__main__":
     test1 = MineStrings()

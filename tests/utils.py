@@ -79,3 +79,48 @@ def select_all_of_stream(stream):
 
     stream.metadatata = metadata.to_list(new_md)
     return stream
+
+
+def crud_up_value(value):
+    if isinstance(value, str):
+        return "'" + value + "'"
+    else:
+        raise Exception("crud_up_value does not yet support {}".format(value.__class__))
+
+def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
+    our_keys = list(data.keys())
+    our_keys.sort()
+    our_values = list(map( lambda k: data.get(k), our_keys))
+    # our_values = list(map( lambda k: crud_up_value(data.get(k)), our_keys))
+
+    columns_sql = ", \n".join(our_keys)
+    value_sql   = ", \n".join(map(crud_up_value, our_values))
+    insert_sql = """ INSERT INTO {}
+                            ( {} )
+                     VALUES ( {} )""".format(table_name, columns_sql, value_sql)
+    #initial insert
+    LOGGER.info("crud_up_log_miner_fixtures INSERT: {}".format(insert_sql))
+    cursor.execute(insert_sql)
+
+    our_update_values = list(map(lambda v: crud_up_value(update_munger_fn(v)) , our_values))
+    set_fragments =  ["{} = {}".format(i,j) for i, j in list(zip(our_keys, our_update_values))]
+    set_clause = ", \n".join(set_fragments)
+
+    where_sql_fragments  =["{} = {}".format(i,crud_up_value(j)) for i, j in list(zip(our_keys, our_values))]
+    update_where_clause = " AND \n".join(where_sql_fragments)
+
+    update_sql = """UPDATE {}
+                       SET {}
+                     WHERE {}""".format(table_name, set_clause, update_where_clause)
+
+    #now update
+    LOGGER.info("crud_up_log_miner_fixtures UPDATE: {}".format(update_sql))
+    cursor.execute(update_sql)
+
+    #insert another row for fun
+    cursor.execute(insert_sql)
+
+    #delete both rows
+    cursor.execute(""" DELETE FROM {}""".format(table_name))
+
+    return True
