@@ -58,9 +58,15 @@ def ensure_test_table(table_spec):
         cur.execute(sql)
 
 
-def select_all_of_stream(stream):
-    selected_metadata = [{'metadata': {'selected': True}, 'breadcrumb': ()}]
+def set_replication_method_for_stream(stream, method):
+    new_md = metadata.to_map(stream.metadata)
+    old_md = new_md.get(())
+    old_md.update({'replication-method': method})
 
+    stream.metadatata = metadata.to_list(new_md)
+    return stream
+
+def select_all_of_stream(stream):
     new_md = metadata.to_map(stream.metadata)
 
 

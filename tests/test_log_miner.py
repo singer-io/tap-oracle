@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream
 import tap_oracle.sync_strategies.log_miner as log_miner
 
 LOGGER = get_logger()
@@ -66,6 +66,8 @@ class MineStrings(unittest.TestCase):
             catalog = tap_oracle.do_discovery(conn)
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
+
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'logminer')
 
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
@@ -149,6 +151,10 @@ class MineStrings(unittest.TestCase):
             self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[10], singer.StateMessage))
+
+            #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
+            self.assertEqual({"type" : ['integer']}, CAUGHT_MESSAGES[0].schema.get('properties').get('scn') )
+            self.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, CAUGHT_MESSAGES[0].schema.get('properties').get('_sdc_deleted_at') )
 
 
             #verify message 1 - first insert

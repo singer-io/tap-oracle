@@ -330,20 +330,32 @@ def do_sync(connection, catalog, state):
       #TODO: set currently syncing:
       #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
 
+      #if we are in logminer mode, add scn && _sdc_delete to schema
+
+      stream_metadata = metadata.to_map(stream.metadata)
+      sync_fn = None
+
+
+      replication_method = stream_metadata.get((), {}).get('replication-method')
+      if replication_method == 'logminer':
+         log_miner.add_automatic_properties(stream)
+         sync_fn = log_miner.sync_table
+      else:
+         raise Exception("only logminer is supported right now :)")
+
       schema_message = singer.SchemaMessage(stream=stream.stream,
                                              schema=stream.schema.to_dict(),
                                              key_properties=stream.key_properties,
                                              bookmark_properties=['scn'])
       singer.write_message(schema_message)
 
-      stream_metadata = metadata.to_map(stream.metadata)
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
       stream_version = get_stream_version(stream.tap_stream_id, state)
       with metrics.job_timer('sync_table') as timer:
          timer.tags['database'] = stream.database
          timer.tags['table'] = stream.table
-         log_miner.sync_table(connection, stream, state, desired_columns, stream_version)
+         sync_fn(connection, stream, state, desired_columns, stream_version)
 
    return False
 

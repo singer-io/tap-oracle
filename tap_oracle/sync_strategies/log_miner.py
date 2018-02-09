@@ -2,6 +2,7 @@
 import singer
 from singer import utils, write_message, get_bookmark
 import singer.metadata as metadata
+from singer.schema import Schema
 import tap_oracle.db as orc_db
 from tap_oracle.sync_strategies.common import row_to_singer_message
 import copy
@@ -15,6 +16,11 @@ def fetch_current_scn(connection):
    cur = connection.cursor()
    current_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
    return current_scn
+
+def add_automatic_properties(stream):
+   stream.schema.properties['scn'] = Schema(type = ['integer'])
+   stream.schema.properties['_sdc_deleted_at'] = Schema(
+            type=['null', 'string'], format='date-time')
 
 
 def sync_table(connection, stream, state, desired_columns, stream_version):
