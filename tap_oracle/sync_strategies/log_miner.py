@@ -4,8 +4,12 @@ from singer import utils, write_message, get_bookmark
 import singer.metadata as metadata
 import tap_oracle.db as orc_db
 from tap_oracle.sync_strategies.common import row_to_singer_message
+import copy
+import pdb
 
 LOGGER = singer.get_logger()
+
+UPDATE_BOOKMARK_PERIOD = 1000
 
 def fetch_current_scn(connection):
    cur = connection.cursor()
@@ -40,7 +44,7 @@ def sync_table(connection, stream, state, desired_columns, stream_version):
                                   for idx,c in enumerate(desired_columns)])
 
    mine_sql = """
-      SELECT OPERATION, SQL_REDO, {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
+      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
    """.format(redo_value_sql_clause, undo_value_sql_clause)
    binds = [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + \
            [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + \
@@ -55,24 +59,31 @@ def sync_table(connection, stream, state, desired_columns, stream_version):
                                  'version',
                                  stream_version)
 
-   for op, redo, *col_vals in cur.execute(mine_sql, binds):
+   rows_saved = 0
+   columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
+   for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
+
        redo_vals = col_vals[0:len(desired_columns)]
        undo_vals = col_vals[len(desired_columns):]
+
        if op == 'INSERT':
-             record_message = row_to_singer_message(stream, redo_vals, stream_version, desired_columns, time_extracted)
-             singer.write_message(record_message)
+             redo_vals += [cscn, None]
+             record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
+
        elif op == 'UPDATE':
-             record_message = row_to_singer_message(stream, redo_vals, stream_version, desired_columns, time_extracted)
-             singer.write_message(record_message)
+             redo_vals += [cscn, None]
+             record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
        elif op == 'DELETE':
-             "implement me"
+             undo_vals += [cscn, commit_ts]
+             record_message = row_to_singer_message(stream, undo_vals, stream_version, columns_for_record, time_extracted)
        else:
              raise Exception("unrecognized logminer operation: {}".format(op))
 
-       # state = singer.write_bookmark(state,
-       #                               catalog_entry.tap_stream_id,
-       #                               'replication_key_value',
-       #                               record_message.record[replication_key])
-       # if rows_saved % 1000 == 0:
-       #    yield singer.StateMessage(value=copy.deepcopy(state))
-       # singer.write_message(record_message)
+       singer.write_message(record_message)
+       rows_saved = rows_saved + 1
+       state = singer.write_bookmark(state,
+                                     stream.tap_stream_id,
+                                     'scn',
+                                     cscn)
+       if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
+             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))

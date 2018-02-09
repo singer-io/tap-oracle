@@ -22,7 +22,6 @@ from log_miner import get_logs
 import cx_Oracle
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.log_miner as log_miner
-
 LOGGER = singer.get_logger()
 
 Column = collections.namedtuple('Column', [
@@ -334,7 +333,7 @@ def do_sync(connection, catalog, state):
       schema_message = singer.SchemaMessage(stream=stream.stream,
                                              schema=stream.schema.to_dict(),
                                              key_properties=stream.key_properties,
-                                             bookmark_properties=None)
+                                             bookmark_properties=['scn'])
       singer.write_message(schema_message)
 
       stream_metadata = metadata.to_map(stream.metadata)
