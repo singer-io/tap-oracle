@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
 import tap_oracle.sync_strategies.log_miner as log_miner
 
 LOGGER = get_logger()
@@ -90,29 +90,13 @@ class MineStrings(unittest.TestCase):
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
-            self.assertEqual(11, len(CAUGHT_MESSAGES))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.StateMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.StateMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[10], singer.StateMessage))
-
-            #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
-            self.assertEqual({"type" : ['integer']}, CAUGHT_MESSAGES[0].schema.get('properties').get('scn') )
-            self.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, CAUGHT_MESSAGES[0].schema.get('properties').get('_sdc_deleted_at') )
-
+            verify_crud_messages(self, CAUGHT_MESSAGES)
 
             #verify message 1 - first insert
-            rec1 = CAUGHT_MESSAGES[1].record
-            self.assertIsNotNone(rec1.get('scn'))
-            rec1.pop('scn')
-            self.assertEqual(rec1, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte I',
+            insert_rec_1 = CAUGHT_MESSAGES[1].record
+            self.assertIsNotNone(insert_rec_1.get('scn'))
+            insert_rec_1.pop('scn')
+            self.assertEqual(insert_rec_1, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte I',
                                     'name-char-explicit-char': 'name-char-explicit-char I                                                                                                                                                                                                                                 ',
                                     'name-nvarchar2': 'name-nvarchar2 I', 'name-varchar-explicit-char': 'name-varchar-explicit-char I',
                                     'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
@@ -121,19 +105,11 @@ class MineStrings(unittest.TestCase):
                                     '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '1'})
 
 
-            #verify message 2 (state)
-            bookmarks_1 = CAUGHT_MESSAGES[2].value.get('bookmarks')['ROOT-CHICKEN']
-            self.assertIsNotNone(bookmarks_1)
-            bookmarks_1_scn = bookmarks_1.get('scn')
-            bookmarks_1_version = bookmarks_1.get('version')
-            self.assertIsNotNone(bookmarks_1_scn)
-            self.assertIsNotNone(bookmarks_1_version)
-
-            #verify message 3 (UPDATE)
-            rec2 = CAUGHT_MESSAGES[3].record
-            self.assertIsNotNone(rec2.get('scn'))
-            rec2.pop('scn')
-            self.assertEqual(rec2, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
+            #verify UPDATE
+            update_rec = CAUGHT_MESSAGES[5].record
+            self.assertIsNotNone(update_rec.get('scn'))
+            update_rec.pop('scn')
+            self.assertEqual(update_rec, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
                                     'name-char-explicit-char': 'name-char-explicit-char II                                                                                                                                                                                                                                ',
                                     'name-nvarchar2': 'name-nvarchar2 II', 'name-varchar-explicit-char': 'name-varchar-explicit-char II',
                                     'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
@@ -142,23 +118,13 @@ class MineStrings(unittest.TestCase):
                                     '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
 
 
-            #verify message 4 (state)
-            bookmarks_2 = CAUGHT_MESSAGES[4].value.get('bookmarks')['ROOT-CHICKEN']
-            self.assertIsNotNone(bookmarks_2)
-            bookmarks_2_scn = bookmarks_2.get('scn')
-            bookmarks_2_version = bookmarks_2.get('version')
-            self.assertIsNotNone(bookmarks_2_scn)
-            self.assertIsNotNone(bookmarks_2_version)
-            self.assertGreater(bookmarks_2_scn, bookmarks_1_scn)
-            self.assertEqual(bookmarks_2_version, bookmarks_1_version)
-
             #verify first DELETE message
-            rec3 = CAUGHT_MESSAGES[7].record
-            self.assertIsNotNone(rec3.get('scn'))
-            self.assertIsNotNone(rec3.get('_sdc_deleted_at'))
-            rec3.pop('scn')
-            rec3.pop('_sdc_deleted_at')
-            self.assertEqual(rec3, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
+            delete_rec = CAUGHT_MESSAGES[9].record
+            self.assertIsNotNone(delete_rec.get('scn'))
+            self.assertIsNotNone(delete_rec.get('_sdc_deleted_at'))
+            delete_rec.pop('scn')
+            delete_rec.pop('_sdc_deleted_at')
+            self.assertEqual(delete_rec, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
                                                  'name-char-explicit-char': 'name-char-explicit-char II                                                                                                                                                                                                                                ',
                                                  'name-nvarchar2': 'name-nvarchar2 II', 'name-varchar-explicit-char': 'name-varchar-explicit-char II',
                                                  'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
@@ -167,20 +133,19 @@ class MineStrings(unittest.TestCase):
                                                  'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
 
 
-            #verify message 10 (DELETE)
-            rec4 = CAUGHT_MESSAGES[9].record
-            self.assertIsNotNone(rec4.get('scn'))
-            self.assertIsNotNone(rec4.get('_sdc_deleted_at'))
-            rec4.pop('scn')
-            rec4.pop('_sdc_deleted_at')
-            self.assertEqual(rec4, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte I',
-                                                 'name-char-explicit-char': 'name-char-explicit-char I                                                                                                                                                                                                                                 ',
-                                                 'name-nvarchar2': 'name-nvarchar2 I',
-                                                 'name-varchar-explicit-char': 'name-varchar-explicit-char I',
-                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
-                                                 'NAME_NCHAR': 'name-nchar I                                                                                                               ',
-                                                 'name-char-explicit-byte': 'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
-                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '2'})
+            #verify second DELETE message
+            delete_rec_2 = CAUGHT_MESSAGES[11].record
+            self.assertIsNotNone(delete_rec_2.get('scn'))
+            self.assertIsNotNone(delete_rec_2.get('_sdc_deleted_at'))
+            delete_rec_2.pop('scn')
+            delete_rec_2.pop('_sdc_deleted_at')
+            self.assertEqual(delete_rec_2, {'name-varchar2-explicit-byte': 'name-varchar2-explicit-byte II',
+                                                 'name-char-explicit-char': 'name-char-explicit-char II                                                                                                                                                                                                                                ',
+                                                 'name-nvarchar2': 'name-nvarchar2 II', 'name-varchar-explicit-char': 'name-varchar-explicit-char II',
+                                                 'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
+                                                 'NAME_NCHAR': 'name-nchar II                                                                                                              ',
+                                                 'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
+                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '2'})
 
 
 

@@ -1,5 +1,6 @@
 from singer import get_logger, metadata
 import cx_Oracle
+import singer
 import os
 
 LOGGER = get_logger()
@@ -106,21 +107,47 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
     set_fragments =  ["{} = {}".format(i,j) for i, j in list(zip(our_keys, our_update_values))]
     set_clause = ", \n".join(set_fragments)
 
-    where_sql_fragments  =["{} = {}".format(i,crud_up_value(j)) for i, j in list(zip(our_keys, our_values))]
-    update_where_clause = " AND \n".join(where_sql_fragments)
+    #insert another row for fun
+    cursor.execute(insert_sql)
 
+    #update both rows
     update_sql = """UPDATE {}
-                       SET {}
-                     WHERE {}""".format(table_name, set_clause, update_where_clause)
+                       SET {}""".format(table_name, set_clause)
 
     #now update
     LOGGER.info("crud_up_log_miner_fixtures UPDATE: {}".format(update_sql))
     cursor.execute(update_sql)
 
-    #insert another row for fun
-    cursor.execute(insert_sql)
-
     #delete both rows
     cursor.execute(""" DELETE FROM {}""".format(table_name))
 
     return True
+
+def verify_crud_messages(that, caught_messages):
+    that.assertEqual(13, len(caught_messages))
+    that.assertTrue(isinstance(caught_messages[0], singer.SchemaMessage))
+    that.assertTrue(isinstance(caught_messages[1], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[2], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[3], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[4], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[5], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[6], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[7], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[8], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[9], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[10], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[11], singer.RecordMessage))
+    that.assertTrue(isinstance(caught_messages[12], singer.StateMessage))
+
+
+    #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
+    that.assertEqual({"type" : ['integer']}, caught_messages[0].schema.get('properties').get('scn') )
+    that.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, caught_messages[0].schema.get('properties').get('_sdc_deleted_at') )
+
+    #verify first STATE message
+    bookmarks_1 = caught_messages[2].value.get('bookmarks')['ROOT-CHICKEN']
+    that.assertIsNotNone(bookmarks_1)
+    bookmarks_1_scn = bookmarks_1.get('scn')
+    bookmarks_1_version = bookmarks_1.get('version')
+    that.assertIsNotNone(bookmarks_1_scn)
+    that.assertIsNotNone(bookmarks_1_version)
