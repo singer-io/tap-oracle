@@ -85,6 +85,12 @@ def select_all_of_stream(stream):
 def crud_up_value(value):
     if isinstance(value, str):
         return "'" + value + "'"
+    elif isinstance(value, int):
+        return str(value)
+    elif isinstance(value, float):
+        return str(value)
+    elif value is None:
+        return 'NULL'
     else:
         raise Exception("crud_up_value does not yet support {}".format(value.__class__))
 
@@ -151,3 +157,13 @@ def verify_crud_messages(that, caught_messages):
     bookmarks_1_version = bookmarks_1.get('version')
     that.assertIsNotNone(bookmarks_1_scn)
     that.assertIsNotNone(bookmarks_1_version)
+
+    #verify STATE message after UPDATE
+    bookmarks_2 = caught_messages[6].value.get('bookmarks')['ROOT-CHICKEN']
+    that.assertIsNotNone(bookmarks_2)
+    bookmarks_2_scn = bookmarks_2.get('scn')
+    bookmarks_2_version = bookmarks_2.get('version')
+    that.assertIsNotNone(bookmarks_2_scn)
+    that.assertIsNotNone(bookmarks_2_version)
+    that.assertGreater(bookmarks_2_scn, bookmarks_1_scn)
+    that.assertEqual(bookmarks_2_version, bookmarks_1_version)
