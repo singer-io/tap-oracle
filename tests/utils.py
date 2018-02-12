@@ -88,8 +88,8 @@ def crud_up_value(value):
         return "'" + value + "'"
     elif isinstance(value, int):
         return str(value)
-    # elif isinstance(value, float):
-    #     return "{:f}".format(value)
+    elif isinstance(value, float):
+        return "{:f}".format(value)
     elif isinstance(value, decimal.Decimal):
         return "{:f}".format(value)
     elif value is None:
@@ -126,6 +126,7 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
     #now update
     LOGGER.info("crud_up_log_miner_fixtures UPDATE: {}".format(update_sql))
     cursor.execute(update_sql)
+
 
     #delete both rows
     cursor.execute(""" DELETE FROM {}""".format(table_name))

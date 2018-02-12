@@ -14,6 +14,8 @@ def row_to_singer_message(stream, row, version, columns, time_extracted):
         elif ('number' in property_type or property_type == 'number') and multiple_of:
             decimal_representation = decimal.Decimal(elem)
             row_to_persist += (decimal_representation,)
+        elif ('number' in property_type or property_type == 'number'):
+            row_to_persist += (float(elem),)
         else:
             row_to_persist += (elem,)
 

@@ -1,0 +1,146 @@
+import unittest
+import os
+import cx_Oracle, sys, string, _thread, datetime
+import tap_oracle
+import pdb
+import singer
+from singer import get_logger, metadata, write_bookmark
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+import tap_oracle.sync_strategies.log_miner as log_miner
+import decimal
+
+LOGGER = get_logger()
+
+CAUGHT_MESSAGES = []
+
+def singer_write_message(message):
+    LOGGER.info("caught message in singer_write_message")
+    CAUGHT_MESSAGES.append(message)
+
+class MineFloats(unittest.TestCase):
+    maxDiff = None
+    def setUp(self):
+        with get_test_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                begin
+                    rdsadmin.rdsadmin_util.set_configuration(
+                        name  => 'archivelog retention hours',
+                        value => '24');
+                end;
+            """)
+
+            cur.execute("""
+                begin
+                   rdsadmin.rdsadmin_util.alter_supplemental_logging(
+                      p_action => 'ADD');
+                end;
+            """)
+
+            result = cur.execute("select log_mode from v$database").fetchall()
+            self.assertEqual(result[0][0], "ARCHIVELOG")
+
+
+        table_spec = {"columns": [{"name" : '"our_float"',                "type" : "float", "primary_key": True, "identity": True },
+                                 {"name" : '"our_double_precision"',      "type" : "double precision"},
+                                 {"name" : '"our_real"',                  "type" : "real"},
+                                 {"name" : '"our_binary_float"',          "type" : "binary_float"},
+                                 {"name" : '"our_binary_double"',         "type" : "binary_double"}],
+                     "name" : "CHICKEN"}
+
+        ensure_test_table(table_spec)
+
+
+    def update_add_5(self, v):
+        if v is not None:
+            return v + 5
+        else:
+            return None
+
+    def test_catalog(self):
+
+        singer.write_message = singer_write_message
+        log_miner.UPDATE_BOOKMARK_PERIOD = 1
+
+        with get_test_connection() as conn:
+            conn.autocommit = True
+            catalog = tap_oracle.do_discovery(conn)
+            chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
+            chicken_stream = select_all_of_stream(chicken_stream)
+
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'logminer')
+
+            cur = conn.cursor()
+            prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
+
+            crud_up_log_miner_fixtures(cur, 'CHICKEN', {
+                '"our_double_precision"': 1234567.8901234,
+                '"our_real"': 1234567.8901234,
+                '"our_binary_float"': 1234567.8901234,
+                '"our_binary_double"': 1234567.8901234,
+            }, self.update_add_5)
+
+            post_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
+            LOGGER.info("post SCN: {}".format(post_scn))
+
+            state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
+            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+
+            verify_crud_messages(self, CAUGHT_MESSAGES)
+
+            #verify message 1 - first insert
+            insert_rec_1 = CAUGHT_MESSAGES[1].record
+            self.assertIsNotNone(insert_rec_1.get('scn'))
+            insert_rec_1.pop('scn')
+            self.assertEqual(insert_rec_1, {
+                                 'our_float': 1.0,
+                                 'our_double_precision': 1234567.890123,
+                                 'our_real': 1234567.890123,
+                                 'our_binary_float': 1234567.88, #weird
+                                 'our_binary_double': 1234567.890123,
+                                 '_sdc_deleted_at': None})
+
+
+            #verify UPDATE
+            update_rec = CAUGHT_MESSAGES[5].record
+            self.assertIsNotNone(update_rec.get('scn'))
+            update_rec.pop('scn')
+            self.assertEqual(update_rec, {'our_binary_double': 1234572.890123,
+                                          '_sdc_deleted_at': None,
+                                          'our_binary_float': 1234572.88,
+                                          'our_float': 1.0,
+                                          'our_double_precision': 1234572.890123,
+                                          'our_real': 1234572.890123})
+
+            #verify first DELETE message
+            delete_rec = CAUGHT_MESSAGES[9].record
+            self.assertIsNotNone(delete_rec.get('scn'))
+            self.assertIsNotNone(delete_rec.get('_sdc_deleted_at'))
+            delete_rec.pop('scn')
+            delete_rec.pop('_sdc_deleted_at')
+            self.assertEqual(delete_rec,
+                             {'our_binary_double': 1234572.890123,
+                              'our_binary_float': 1234572.88,
+                              'our_float': 1.0,
+                              'our_double_precision': 1234572.890123, 'our_real': 1234572.890123})
+
+
+            #verify second DELETE message
+            delete_rec_2 = CAUGHT_MESSAGES[11].record
+            self.assertIsNotNone(delete_rec_2.get('scn'))
+            self.assertIsNotNone(delete_rec_2.get('_sdc_deleted_at'))
+            delete_rec_2.pop('scn')
+            delete_rec_2.pop('_sdc_deleted_at')
+            self.assertEqual(delete_rec_2,
+                             {'our_binary_double': 1234572.890123,
+                              'our_binary_float': 1234572.88,
+                              'our_float': 2.0,
+                              'our_double_precision': 1234572.890123, 'our_real': 1234572.890123})
+
+
+
+
+if __name__== "__main__":
+    test1 = MineFloats()
+    test1.setUp()
+    test1.test_catalog()
