@@ -3,6 +3,7 @@ import cx_Oracle
 import singer
 import os
 import decimal
+import math
 
 LOGGER = get_logger()
 
@@ -89,7 +90,14 @@ def crud_up_value(value):
     elif isinstance(value, int):
         return str(value)
     elif isinstance(value, float):
-        return "{:f}".format(value)
+        if (value == float('+inf')):
+            return "'+Inf'"
+        elif (value == float('-inf')):
+            return "'-Inf'"
+        elif (math.isnan(value)):
+            return "'NaN'"
+        else:
+            return "{:f}".format(value)
     elif isinstance(value, decimal.Decimal):
         return "{:f}".format(value)
     elif value is None:
