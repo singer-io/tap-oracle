@@ -2,6 +2,7 @@ from singer import get_logger, metadata
 import cx_Oracle
 import singer
 import os
+import decimal
 
 LOGGER = get_logger()
 
@@ -87,8 +88,10 @@ def crud_up_value(value):
         return "'" + value + "'"
     elif isinstance(value, int):
         return str(value)
-    elif isinstance(value, float):
-        return str(value)
+    # elif isinstance(value, float):
+    #     return "{:f}".format(value)
+    elif isinstance(value, decimal.Decimal):
+        return "{:f}".format(value)
     elif value is None:
         return 'NULL'
     else:

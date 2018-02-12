@@ -41,7 +41,7 @@ class MineInts(unittest.TestCase):
 
 
         table_spec = {"columns": [{"name" :  "size_pk",               "type" : "number(4,0)", "primary_key" : True, "identity" : True},
-                                  {"name" : '"size_none"',      "type" : "number(4,0)"},
+                                  {"name" : '"size_none"',            "type" : "number(4,0)"},
                                   {"name" : '"size_number_4_0"',      "type" : "number(4,0)"},
                                   {"name" : '"size_number_*_0"',      "type" : "number(*,0)"},
                                   {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
