@@ -4,6 +4,7 @@ import singer
 import os
 import decimal
 import math
+import datetime
 
 LOGGER = get_logger()
 
@@ -100,8 +101,15 @@ def crud_up_value(value):
             return "{:f}".format(value)
     elif isinstance(value, decimal.Decimal):
         return "{:f}".format(value)
+
     elif value is None:
         return 'NULL'
+    elif isinstance(value, datetime.datetime) and value.tzinfo is None:
+        return "TIMESTAMP '{}'".format(str(value))
+    elif isinstance(value, datetime.datetime):
+        return "TIMESTAMP '{}'".format(str(value))
+    elif isinstance(value, datetime.date):
+        return "Date  '{}'".format(str(value))
     else:
         raise Exception("crud_up_value does not yet support {}".format(value.__class__))
 
@@ -141,7 +149,7 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
 
     return True
 
-def verify_crud_messages(that, caught_messages):
+def verify_crud_messages(that, caught_messages, pks):
     that.assertEqual(13, len(caught_messages))
     that.assertTrue(isinstance(caught_messages[0], singer.SchemaMessage))
     that.assertTrue(isinstance(caught_messages[1], singer.RecordMessage))
@@ -157,10 +165,12 @@ def verify_crud_messages(that, caught_messages):
     that.assertTrue(isinstance(caught_messages[11], singer.RecordMessage))
     that.assertTrue(isinstance(caught_messages[12], singer.StateMessage))
 
-
     #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
     that.assertEqual({"type" : ['integer']}, caught_messages[0].schema.get('properties').get('scn') )
     that.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, caught_messages[0].schema.get('properties').get('_sdc_deleted_at') )
+
+
+    that.assertEqual(pks, caught_messages[0].key_properties)
 
     #verify first STATE message
     bookmarks_1 = caught_messages[2].value.get('bookmarks')['ROOT-CHICKEN']

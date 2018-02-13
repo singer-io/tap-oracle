@@ -11,7 +11,8 @@ setup(name='tap-oracle',
       install_requires=[
           'singer-python==5.0.4',
           'requests==2.12.4',
- 	  'cx_Oracle==6.1'
+ 	  'cx_Oracle==6.1',
+	  'strict-rfc3339==0.7'
       ],
       entry_points='''
           [console_scripts]

@@ -24,6 +24,11 @@ def add_automatic_properties(stream):
 
 
 def sync_table(connection, stream, state, desired_columns, stream_version):
+   cur = connection.cursor()
+   cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T00:00:00.00+00:00"'""")
+   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD"T"HH:MI:SSXFF"+00:00"'""")
+   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH:MI:SS.FFTZH:TZM'""")
+
    end_scn = fetch_current_scn(connection)
    time_extracted = utils.now()
 

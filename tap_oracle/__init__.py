@@ -202,7 +202,6 @@ def produce_column_metadata(connection, table_schema, table_name, pk_constraints
 
    metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
 
-
    for c_name in column_schemas:
       # if table_name == 'CHICKEN' and c_name == 'BAD_COLUMN':
       #    pdb.set_trace()
@@ -320,9 +319,6 @@ def should_sync_column(metadata, field_name):
 
    return False
 
-
-
-
 def do_sync(connection, catalog, state):
    streams_to_sync = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
 
@@ -344,9 +340,9 @@ def do_sync(connection, catalog, state):
          raise Exception("only logminer is supported right now :)")
 
       schema_message = singer.SchemaMessage(stream=stream.stream,
-                                             schema=stream.schema.to_dict(),
-                                             key_properties=stream.key_properties,
-                                             bookmark_properties=['scn'])
+                                            schema=stream.schema.to_dict(),
+                                            key_properties=metadata.to_map(stream.metadata).get((), {}).get('key_properties'),
+                                            bookmark_properties=['scn'])
       singer.write_message(schema_message)
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
