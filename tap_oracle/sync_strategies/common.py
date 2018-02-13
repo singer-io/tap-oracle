@@ -4,14 +4,13 @@ import datetime
 import dateutil.parser
 
 DEFAULT_TZINFO = datetime.tzinfo(0)
-
+# SELECT TZ_OFFSET(DBTIMEZONE) FROM DUAL;
 def row_to_singer_message(stream, row, version, columns, time_extracted):
     row_to_persist = ()
     for idx, elem in enumerate(row):
         property_type = stream.schema.properties[columns[idx]].type
         multiple_of = stream.schema.properties[columns[idx]].multipleOf
         format = stream.schema.properties[columns[idx]].format #date-time
-
         if elem is None:
             row_to_persist += (elem,)
         elif 'integer' in property_type or property_type == 'integer':

@@ -47,8 +47,8 @@ class MineDates(unittest.TestCase):
                                       {"name" : '"our_date"',                   "type" : "DATE"},
                                       {"name" : '"our_ts"',                     "type" : "TIMESTAMP"},
                                       {"name" : '"our_ts_tz_edt"',              "type" : "TIMESTAMP WITH TIME ZONE"},
-                                      {"name" : '"our_ts_tz_utc"',              "type" : "TIMESTAMP WITH TIME ZONE"}
-                                      # {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}
+                                      {"name" : '"our_ts_tz_utc"',              "type" : "TIMESTAMP WITH TIME ZONE"},
+                                      {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}
             ],
                           "name" : "CHICKEN"}
             ensure_test_table(table_spec)
@@ -67,7 +67,6 @@ class MineDates(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
 
-
             catalog = tap_oracle.do_discovery(conn)
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
@@ -84,14 +83,15 @@ class MineDates(unittest.TestCase):
             nyc_tz = pytz.timezone('America/New_York')
             our_ts_tz_edt = nyc_tz.localize(datetime.datetime(1997, 3, 3, 3, 3, 3, 722184))
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
-            our_ts_local  = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184)
+            auckland_tz = pytz.timezone('Pacific/Auckland')
+            our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
 
             crud_up_log_miner_fixtures(cur, 'CHICKEN', {
                 '"our_date"'           :  our_date,
                 '"our_ts"'             :  our_ts,
                 '"our_ts_tz_edt"'      :  our_ts_tz_edt,
-                '"our_ts_tz_utc"'      :  our_ts_tz_utc
-                # '"our_ts_tz_local"'    : our_ts_local
+                '"our_ts_tz_utc"'      :  our_ts_tz_utc,
+                '"our_ts_tz_local"'    :  our_ts_local
             }, self.update_add_1_day)
 
 
@@ -116,7 +116,8 @@ class MineDates(unittest.TestCase):
             self.assertEqual(insert_rec_1, {'our_ts': '1997-02-02T02:02:02.722184+00:00',
                                             'our_ts_tz_edt': '1997-03-03T03:03:03.722184-05:00',
                                             'our_ts_tz_utc': '1997-03-03T03:03:03.722184+00:00',
-                                            'our_date': '1996-06-06T00:00:00.00+00:00'
+                                            'our_date': '1996-06-06T00:00:00.00+00:00',
+                                            'our_ts_tz_local': '1997-03-03T05:03:03.722184+00:00'
                                             })
 
 
@@ -135,6 +136,7 @@ class MineDates(unittest.TestCase):
                               'our_ts_tz_utc': '1997-03-04T03:03:03.722184+00:00',
                               'our_date': '1996-06-07T00:00:00.00+00:00',
                               '_sdc_deleted_at': None,
+                              'our_ts_tz_local': '1997-03-04T05:03:03.722184+00:00',
                               'ID' : 1})
 
 
@@ -149,6 +151,7 @@ class MineDates(unittest.TestCase):
                               'our_ts_tz_edt': '1997-03-04T03:03:03.722184-05:00',
                               'our_ts_tz_utc': '1997-03-04T03:03:03.722184+00:00',
                               'our_date': '1996-06-07T00:00:00.00+00:00',
+                              'our_ts_tz_local': '1997-03-04T05:03:03.722184+00:00',
                               'ID': 1})
 
 
@@ -164,6 +167,7 @@ class MineDates(unittest.TestCase):
                               'our_ts_tz_edt': '1997-03-04T03:03:03.722184-05:00',
                               'our_ts_tz_utc': '1997-03-04T03:03:03.722184+00:00',
                               'our_date': '1996-06-07T00:00:00.00+00:00',
+                              'our_ts_tz_local': '1997-03-04T05:03:03.722184+00:00',
                               'ID': 2})
 
 

@@ -25,9 +25,10 @@ def add_automatic_properties(stream):
 
 def sync_table(connection, stream, state, desired_columns, stream_version):
    cur = connection.cursor()
+   cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
    cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T00:00:00.00+00:00"'""")
-   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD"T"HH:MI:SSXFF"+00:00"'""")
-   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH:MI:SS.FFTZH:TZM'""")
+   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD"T"HH24:MI:SSXFF"+00:00"'""")
+   cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH24:MI:SS.FFTZH:TZM'""")
 
    end_scn = fetch_current_scn(connection)
    time_extracted = utils.now()
@@ -73,10 +74,8 @@ def sync_table(connection, stream, state, desired_columns, stream_version):
    rows_saved = 0
    columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
    for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
-
        redo_vals = col_vals[0:len(desired_columns)]
        undo_vals = col_vals[len(desired_columns):]
-
        if op == 'INSERT':
              redo_vals += [cscn, None]
              record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
