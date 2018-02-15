@@ -42,7 +42,8 @@ class TestStringTableWithPK(unittest.TestCase):
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
             self.assertEqual(stream_dict.get('metadata'),
-                             [{'metadata': {'key_properties': ['ID']}, 'breadcrumb': ()},
+                             [{'metadata': {'key-properties': ['ID'],
+                                            'schema-name': 'ROOT'}, 'breadcrumb': ()},
                               {'metadata': {'inclusion': 'unsupported'}, 'breadcrumb': ('properties', 'BAD_COLUMN')},
                               {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'NAME_LONG')},
@@ -116,11 +117,10 @@ class TestIntegerTablePK(unittest.TestCase):
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
-                              'database_name': 'ROOT',
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'metadata': {'key_properties': ['SIZE_PK']}, 'breadcrumb': ()},
+                              'metadata': [{'metadata': {'key-properties': ['SIZE_PK'], 'schema-name': 'ROOT'}, 'breadcrumb': ()},
                                            {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'SIZE_PK')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_*_0')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
@@ -168,11 +168,10 @@ class TestDecimalPK(unittest.TestCase):
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
-                              'database_name': 'ROOT',
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': ['our_number']}},
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ['our_number'], 'schema-name': 'ROOT'}},
                                            {'breadcrumb': ('properties', 'our_number'), 'metadata': {'inclusion': 'automatic'}},
                                            {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available'}}]},
@@ -244,19 +243,33 @@ class TestFloatTablePK(unittest.TestCase):
             stream_dict = chicken_streams[0].to_dict()
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['number']},
-                                                        'our_double_precision':    {'type': ['null', 'number']},
-                                                        'our_real':                {'type': ['null', 'number']},
+            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['number'],
+                                                                                    'exclusiveMaximum': True,
+                                                                                    'exclusiveMinimum': True,
+                                                                                    'maximum': 100000000000000000000000000000000000000,
+                                                                                    'minimum': -100000000000000000000000000000000000000,
+                                                                                    'multipleOf': 1e-38},
+                                                        'our_double_precision':    {'type': ['null', 'number'],
+                                                                                    'exclusiveMaximum': True,
+                                                                                    'exclusiveMinimum': True,
+                                                                                    'maximum': 100000000000000000000000000000000000000,
+                                                                                    'minimum': -100000000000000000000000000000000000000,
+                                                                                    'multipleOf': 1e-38},
+                                                        'our_real':                {'type': ['null', 'number'],
+                                                                                    'exclusiveMaximum': True,
+                                                                                    'exclusiveMinimum': True,
+                                                                                    'maximum': 1000000000000000000,
+                                                                                    'minimum': -1000000000000000000,
+                                                                                    'multipleOf': 1e-18},
                                                         'our_binary_float':        {'type': ['null', 'number']},
                                                         'our_binary_double':       {'type': ['null', 'number']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
-                              'database_name': 'ROOT',
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key_properties': ["our_float"]}},
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ["our_float"], 'schema-name': 'ROOT'}},
                                            {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available'}},
@@ -264,6 +277,6 @@ class TestFloatTablePK(unittest.TestCase):
                                            {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available'}}]},
                              stream_dict)
 if __name__== "__main__":
-    test1 = TestDatesTablePK()
+    test1 = TestFloatTablePK()
     test1.setUp()
     test1.test_catalog()

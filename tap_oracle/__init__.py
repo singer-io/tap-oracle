@@ -47,9 +47,6 @@ STRING_TYPES = set([
 ])
 
 FLOAT_TYPES = set([
-   'float',
-   'real',
-   'double precision',
    'binary_float',
    'binary_double'
 ])
@@ -146,6 +143,32 @@ def schema_for_column(c, pks_for_table):
 
       if character_used == 'C':
          result.maxLength = c.char_length
+      return result
+
+   #"real"
+   elif c.data_type == 'FLOAT' and c.numeric_precision == 63:
+      if c.column_name in pks_for_table:
+         result.type = ['number']
+      else:
+         result.type = ['null', 'number']
+
+      result.exclusiveMaximum = True
+      result.maximum = 10 ** 18
+      result.multipleOf = 10 ** -18
+      result.exclusiveMinimum = True
+      result.minimum = -10 ** 18
+      return result
+
+   elif data_type in ['float', 'double_precision']:
+      if c.column_name in pks_for_table:
+         result.type = ['number']
+      else:
+         result.type = ['null', 'number']
+      result.exclusiveMaximum = True
+      result.maximum = 10 ** 38
+      result.multipleOf = 10 ** -38
+      result.exclusiveMinimum = True
+      result.minimum = -10 ** 38
       return result
 
    return Schema(None)
