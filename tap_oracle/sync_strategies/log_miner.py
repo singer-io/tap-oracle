@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import singer
+import decimal
+import datetime
+import dateutil.parser
 from singer import utils, write_message, get_bookmark
 import singer.metadata as metadata
 from singer.schema import Schema
 import tap_oracle.db as orc_db
-from tap_oracle.sync_strategies.common import row_to_singer_message
 import copy
 import pdb
+import time
 
 LOGGER = singer.get_logger()
 
@@ -22,8 +25,45 @@ def add_automatic_properties(stream):
    stream.schema.properties['_sdc_deleted_at'] = Schema(
             type=['null', 'string'], format='date-time')
 
+def get_stream_version(tap_stream_id, state):
+   stream_version = singer.get_bookmark(state, tap_stream_id, 'version')
 
-def sync_table(connection, stream, state, desired_columns, stream_version):
+   if stream_version is None:
+      stream_version = int(time.time() * 1000)
+
+   return stream_version
+
+def row_to_singer_message(stream, row, version, columns, time_extracted):
+    row_to_persist = ()
+    for idx, elem in enumerate(row):
+        property_type = stream.schema.properties[columns[idx]].type
+        multiple_of = stream.schema.properties[columns[idx]].multipleOf
+        format = stream.schema.properties[columns[idx]].format #date-time
+        if elem is None:
+            row_to_persist += (elem,)
+        elif 'integer' in property_type or property_type == 'integer':
+            integer_representation = int(elem)
+            row_to_persist += (integer_representation,)
+        elif ('number' in property_type or property_type == 'number') and multiple_of:
+            decimal_representation = decimal.Decimal(elem)
+            row_to_persist += (decimal_representation,)
+        elif ('number' in property_type or property_type == 'number'):
+            row_to_persist += (float(elem),)
+        elif format == 'date-time':
+            row_to_persist += (elem,)
+        else:
+            row_to_persist += (elem,)
+
+    rec = dict(zip(columns, row_to_persist))
+    return singer.RecordMessage(
+        stream=stream.stream,
+        record=rec,
+        version=version,
+        time_extracted=time_extracted)
+
+
+def sync_table(connection, stream, state, desired_columns):
+   stream_version = get_stream_version(stream.tap_stream_id, state)
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
    cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T00:00:00.00+00:00"'""")
@@ -55,16 +95,17 @@ def sync_table(connection, stream, state, desired_columns, stream_version):
    undo_value_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(UNDO_VALUE, :{})""".format(idx+1)
                                   for idx,c in enumerate(desired_columns)])
 
+   schema_name = metadata.to_map(stream.metadata).get(()).get('schema-name')
+
    mine_sql = """
       SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
    """.format(redo_value_sql_clause, undo_value_sql_clause)
-   binds = [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + \
-           [orc_db.fully_qualified_column_name(stream.database, stream.table, c) for c in desired_columns] + \
-           [orc_db.quote_identifier(stream.table)]
+   binds = [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
+           [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
+           [stream.table]
 
    LOGGER.info('mine_sql: {}'.format(mine_sql))
    LOGGER.info('mine_binds: {}'.format(binds))
-
 
    state = singer.write_bookmark(state,
                                  stream.tap_stream_id,

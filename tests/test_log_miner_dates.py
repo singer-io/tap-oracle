@@ -75,7 +75,6 @@ class MineDates(unittest.TestCase):
 
             cur = conn.cursor()
 
-
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
 
             our_date = datetime.date(1996, 6, 6)

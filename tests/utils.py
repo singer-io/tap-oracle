@@ -61,6 +61,11 @@ def ensure_test_table(table_spec):
         print(sql)
         cur.execute(sql)
 
+def unselect_column(our_stream, col):
+    md = metadata.to_map(our_stream.metadata)
+    md.get(('properties', col))['selected'] = False
+    our_stream.metadata = metadata.to_list(md)
+    return our_stream
 
 def set_replication_method_for_stream(stream, method):
     new_md = metadata.to_map(stream.metadata)
@@ -73,13 +78,13 @@ def set_replication_method_for_stream(stream, method):
 def select_all_of_stream(stream):
     new_md = metadata.to_map(stream.metadata)
 
-
     old_md = new_md.get(())
     old_md.update({'selected': True})
-
     for col_name, col_schema in stream.schema.properties.items():
-        old_md = new_md.get(('properties', col_name))
-        old_md.update({'selected' : True})
+        #explicitly select column if it is not automatic
+        if new_md.get(('properties', col_name)).get('inclusion') != 'automatic' and new_md.get(('properties', col_name)).get('inclusion') != 'unsupported':
+            old_md = new_md.get(('properties', col_name))
+            old_md.update({'selected' : True})
 
     stream.metadatata = metadata.to_list(new_md)
     return stream
@@ -113,27 +118,34 @@ def crud_up_value(value):
     else:
         raise Exception("crud_up_value does not yet support {}".format(value.__class__))
 
-def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
+def insert_record(cursor, table_name, data):
     our_keys = list(data.keys())
     our_keys.sort()
     our_values = list(map( lambda k: data.get(k), our_keys))
-    # our_values = list(map( lambda k: crud_up_value(data.get(k)), our_keys))
 
     columns_sql = ", \n".join(our_keys)
     value_sql   = ", \n".join(map(crud_up_value, our_values))
     insert_sql = """ INSERT INTO {}
                             ( {} )
                      VALUES ( {} )""".format(table_name, columns_sql, value_sql)
-    #initial insert
-    LOGGER.info("crud_up_log_miner_fixtures INSERT: {}".format(insert_sql))
+    LOGGER.info("INSERT: {}".format(insert_sql))
     cursor.execute(insert_sql)
+
+def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
+    #initial insert
+    insert_record(cursor, table_name, data)
+
+    our_keys = list(data.keys())
+    our_keys.sort()
+    our_values = list(map( lambda k: data.get(k), our_keys))
 
     our_update_values = list(map(lambda v: crud_up_value(update_munger_fn(v)) , our_values))
     set_fragments =  ["{} = {}".format(i,j) for i, j in list(zip(our_keys, our_update_values))]
     set_clause = ", \n".join(set_fragments)
 
+
     #insert another row for fun
-    cursor.execute(insert_sql)
+    insert_record(cursor, table_name, data)
 
     #update both rows
     update_sql = """UPDATE {}
@@ -168,7 +180,6 @@ def verify_crud_messages(that, caught_messages, pks):
     #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
     that.assertEqual({"type" : ['integer']}, caught_messages[0].schema.get('properties').get('scn') )
     that.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, caught_messages[0].schema.get('properties').get('_sdc_deleted_at') )
-
 
     that.assertEqual(pks, caught_messages[0].key_properties)
 

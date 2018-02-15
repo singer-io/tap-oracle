@@ -22,8 +22,10 @@ from log_miner import get_logs
 import cx_Oracle
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.log_miner as log_miner
+import tap_oracle.sync_strategies.full_table as full_table
 LOGGER = singer.get_logger()
 
+#LogMiner do not support LONG, LONG RAW, CLOB, BLOB, NCLOB, ADT, or COLLECTION datatypes.
 Column = collections.namedtuple('Column', [
     "table_schema",
     "table_name",
@@ -42,7 +44,6 @@ STRING_TYPES = set([
     'varchar',
     'varchar2',
     'nvarchar2',
-    'long'
 ])
 
 FLOAT_TYPES = set([
@@ -59,15 +60,6 @@ REQUIRED_CONFIG_KEYS = [
     'user',
     'password'
 ]
-
-
-def get_stream_version(tap_stream_id, state):
-   stream_version = singer.get_bookmark(state, tap_stream_id, 'version')
-
-   if stream_version is None:
-      stream_version = int(time.time() * 1000)
-
-   return stream_version
 
 def build_state(old_state, catalog):
    LOGGER.info('Building new State from old state %s', old_state)
@@ -96,9 +88,6 @@ DEFAULT_NUMERIC_SCALE=0
 def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
-
-   # if c.table_name == 'CHICKEN':
-   #    pdb.set_trace()
 
    numeric_scale = c.numeric_scale or DEFAULT_NUMERIC_SCALE
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
@@ -130,9 +119,6 @@ def schema_for_column(c, pks_for_table):
       return result
 
    elif data_type == 'date' or data_type.startswith("timestamp"):
-      # if c.table_name == 'CHICKEN':
-      #    pdb.set_trace()
-
       if c.column_name in pks_for_table:
          result.type = ['string']
       else:
@@ -200,7 +186,8 @@ def produce_pk_constraints(conn):
 def produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas):
    mdata = {}
 
-   metadata.write(mdata, (), 'key_properties', pk_constraints.get(table_schema, {}).get(table_name, []))
+   metadata.write(mdata, (), 'key-properties', pk_constraints.get(table_schema, {}).get(table_name, []))
+   metadata.write(mdata, (), 'schema-name', table_schema)
 
    for c_name in column_schemas:
       # if table_name == 'CHICKEN' and c_name == 'BAD_COLUMN':
@@ -249,7 +236,6 @@ def discover_columns(connection, table_info):
 
       md = produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas)
       entry = CatalogEntry(
-         database=table_schema,
          table=table_name,
          stream=table_name,
          metadata=metadata.to_list(md),
@@ -325,41 +311,39 @@ def do_sync(connection, catalog, state):
    for stream in streams_to_sync:
       #TODO: set currently syncing:
       #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
-
-      #if we are in logminer mode, add scn && _sdc_delete to schema
-
       stream_metadata = metadata.to_map(stream.metadata)
       sync_fn = None
-
 
       replication_method = stream_metadata.get((), {}).get('replication-method')
       if replication_method == 'logminer':
          log_miner.add_automatic_properties(stream)
          sync_fn = log_miner.sync_table
+      elif replication_method == 'full_table':
+         sync_fn = full_table.sync_table
       else:
          raise Exception("only logminer is supported right now :)")
 
       schema_message = singer.SchemaMessage(stream=stream.stream,
                                             schema=stream.schema.to_dict(),
-                                            key_properties=metadata.to_map(stream.metadata).get((), {}).get('key_properties'),
+                                            key_properties=metadata.to_map(stream.metadata).get((), {}).get('key-properties'),
                                             bookmark_properties=['scn'])
       singer.write_message(schema_message)
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
-      stream_version = get_stream_version(stream.tap_stream_id, state)
       with metrics.job_timer('sync_table') as timer:
          timer.tags['database'] = stream.database
          timer.tags['table'] = stream.table
-         sync_fn(connection, stream, state, desired_columns, stream_version)
+         sync_fn(connection, stream, state, desired_columns)
 
    return False
 
 def main_impl():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
+    connection = open_connection(args.config)
 
     if args.discover:
-        do_discover(connection)
+        do_discovery(connection)
     elif args.catalog:
        state = build_state(args.state, args.catalog)
        do_sync(connection, args.catalog, state)
