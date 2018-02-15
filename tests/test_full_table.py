@@ -165,7 +165,9 @@ class FullTable(unittest.TestCase):
             self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.ActivateVersionMessage))
 
-            version = CAUGHT_MESSAGES[1].value.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
+            state = CAUGHT_MESSAGES[1].value
+            version = state.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
+
             self.assertIsNotNone(version)
             self.assertEqual(CAUGHT_MESSAGES[2].version, version)
             self.assertEqual(CAUGHT_MESSAGES[5].version, version)
@@ -228,19 +230,22 @@ class FullTable(unittest.TestCase):
 
             self.assertEqual(CAUGHT_MESSAGES[4].record, expected_rec_2)
 
+            #run another do_sync
+            CAUGHT_MESSAGES.clear()
+            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+
+            self.assertEqual(5, len(CAUGHT_MESSAGES))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.RecordMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.ActivateVersionMessage))
+
+            nascent_version = CAUGHT_MESSAGES[1].value.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
+            self.assertTrue( nascent_version > version)
+
+
 if __name__== "__main__":
     test1 = FullTable()
-
-
-
-
-
-
-
-
-
-
-
-
     test1.setUp()
     test1.test_catalog()

@@ -336,8 +336,6 @@ def do_sync(connection, catalog, state):
          timer.tags['table'] = stream.table
          sync_fn(connection, stream, state, desired_columns)
 
-   return False
-
 def main_impl():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     connection = open_connection(args.config)
