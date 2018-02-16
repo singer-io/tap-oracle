@@ -100,9 +100,9 @@ class FullTable(unittest.TestCase):
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
             auckland_tz = pytz.timezone('Pacific/Auckland')
             our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
-            our_real = decimal.Decimal('1234567.8901234567890123456789')
-            our_float = decimal.Decimal('1234567.8901234567890123456789')
-            our_double_precision = decimal.Decimal('1234567.8901234567890123456789')
+            our_float = decimal.Decimal('1234567.890123456789012345678901234567890123456789')
+            our_real = our_float
+            our_double_precision = our_float
 
             rec_1 = {
                 '"none_column"'         : None,
@@ -173,21 +173,23 @@ class FullTable(unittest.TestCase):
             self.assertEqual(CAUGHT_MESSAGES[5].version, version)
             edt = pytz.timezone('America/New_York')
 
-            expected_rec_1 = {'ID'                  : decimal.Decimal(1),
+            expected_rec_1 = {'ID'                  : 1,
                               'none_column'         : None,
-                              'size_number_4_0'     : decimal.Decimal('100'),
-                              'size_number_*_0'     : decimal.Decimal('200'),
-                              'size_number_10_-1'   : decimal.Decimal('310'),
-                              'size_number_integer' : decimal.Decimal('400'),
-                              'size_number_int'     : decimal.Decimal('500'),
-                              'size_number_smallint': decimal.Decimal('50000'),
+                              'size_number_4_0'     : 100,
+                              'size_number_*_0'     : 200,
+                              'size_number_10_-1'   : 310,
+                              'size_number_integer' : 400,
+                              'size_number_int'     : 500,
+                              'size_number_smallint': 50000,
 
                               'our_number_10_2'     : decimal.Decimal('100.11'),
                               'our_number_38_4'     : decimal.Decimal('99999999999999999.9999'),
 
-                              'our_double_precision': decimal.Decimal('1234567.8901234567890123456789'),
+                              'our_double_precision': decimal.Decimal('1234567.8901234567890123456789012345679'),
+                              'our_float'           : decimal.Decimal('1234567.8901234567890123456789012345679'),
                               'our_real'            : decimal.Decimal('1234567.890123456789'),
-                              'our_float'           : decimal.Decimal('1234567.8901234567890123456789'),
+
+
 
                               'our_binary_float'    : 1234567.875,
                               'our_binary_double'   : 1234567.890123,

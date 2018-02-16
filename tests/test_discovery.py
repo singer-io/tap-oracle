@@ -35,18 +35,14 @@ class TestStringTableWithPK(unittest.TestCase):
             self.assertEqual('CHICKEN', stream_dict.get('table_name'))
             self.assertEqual(False, stream_dict.get('is_view'))
             self.assertEqual(0, stream_dict.get('row_count'))
-            self.assertEqual('ROOT', stream_dict.get('database_name'))
             self.assertEqual('CHICKEN', stream_dict.get('stream'))
             self.assertEqual('ROOT-CHICKEN', stream_dict.get('tap_stream_id'))
 
-
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
+
             self.assertEqual(stream_dict.get('metadata'),
-                             [{'metadata': {'key-properties': ['ID'],
-                                            'schema-name': 'ROOT'}, 'breadcrumb': ()},
-                              {'metadata': {'inclusion': 'unsupported'}, 'breadcrumb': ('properties', 'BAD_COLUMN')},
+                             [{'metadata': {'key-properties': ['ID'], 'schema-name': 'ROOT'}, 'breadcrumb': ()},
                               {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'NAME_LONG')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-byte')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-char')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-nchar')},
@@ -59,7 +55,6 @@ class TestStringTableWithPK(unittest.TestCase):
             self.assertEqual({'properties': {'ID':                      {'type': ['integer'],
                                                                          'maximum': 99999999999999999999999999999999999999,
                                                                          'minimum': -99999999999999999999999999999999999999},
-                                             'BAD_COLUMN':              {},
                                              'name-char-explicit-byte': {'type': ['null', 'string']},
                                              'name-char-explicit-char': {'type': ['null', 'string'], 'maxLength': 250},
 
@@ -70,9 +65,7 @@ class TestStringTableWithPK(unittest.TestCase):
                                              'name-varchar-explicit-char': {'type': ['null', 'string'], 'maxLength': 251},
 
                                              'name-varchar2-explicit-byte': {'type': ['null', 'string']},
-                                             'name-varchar2-explicit-char': {'type': ['null', 'string'], 'maxLength': 251},
-
-                                             'NAME_LONG':        {'type': ['null', 'string']}},
+                                             'name-varchar2-explicit-char': {'type': ['null', 'string'], 'maxLength': 251}},
                               'type': 'object'},  stream_dict.get('schema'))
 
 
@@ -171,7 +164,7 @@ class TestDecimalPK(unittest.TestCase):
                               'tap_stream_id': 'ROOT-CHICKEN',
                               'is_view': False,
                               'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ['our_number'], 'schema-name': 'ROOT'}},
+                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ['our_number'], 'schema-name': 'ROOT' }},
                                            {'breadcrumb': ('properties', 'our_number'), 'metadata': {'inclusion': 'automatic'}},
                                            {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available'}}]},

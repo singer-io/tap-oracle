@@ -18,7 +18,6 @@ import singer.schema
 from singer import utils, metadata, get_bookmark
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
-from log_miner import get_logs
 import cx_Oracle
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.log_miner as log_miner
@@ -170,6 +169,7 @@ def schema_for_column(c, pks_for_table):
       result.exclusiveMinimum = True
       result.minimum = -10 ** 38
       return result
+
 
    return Schema(None)
 
@@ -335,16 +335,17 @@ def do_sync(connection, catalog, state):
       #TODO: set currently syncing:
       #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
-      sync_fn = None
+      sync_fn = full_table.sync_table
 
       replication_method = stream_metadata.get((), {}).get('replication-method')
       if replication_method == 'logminer':
+         if get_bookmark(state, stream.tap_stream_id, 'scn'):
+            sync_fn = log_miner.sync_table
          log_miner.add_automatic_properties(stream)
-         sync_fn = log_miner.sync_table
       elif replication_method == 'full_table':
          sync_fn = full_table.sync_table
       else:
-         raise Exception("only logminer is supported right now :)")
+         raise Exception("only logminer and full_table are supported right now :)")
 
       schema_message = singer.SchemaMessage(stream=stream.stream,
                                             schema=stream.schema.to_dict(),

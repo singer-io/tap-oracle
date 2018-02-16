@@ -93,7 +93,7 @@ class MineInts(unittest.TestCase):
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
-            verify_crud_messages(self, CAUGHT_MESSAGES, ['size_pk'])
+            verify_crud_messages(self, CAUGHT_MESSAGES, ['SIZE_PK'])
 
             #verify message 1 - first insert
             insert_rec_1 = CAUGHT_MESSAGES[1].record
