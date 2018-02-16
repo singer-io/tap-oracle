@@ -29,7 +29,7 @@ def get_stream_version(tap_stream_id, state):
    stream_version = singer.get_bookmark(state, tap_stream_id, 'version')
 
    if stream_version is None:
-      stream_version = int(time.time() * 1000)
+      raise Exception("version not found for log miner {}".format(tap_stream_id))
 
    return stream_version
 
@@ -60,7 +60,6 @@ def row_to_singer_message(stream, row, version, columns, time_extracted):
         record=rec,
         version=version,
         time_extracted=time_extracted)
-
 
 def sync_table(connection, stream, state, desired_columns):
    stream_version = get_stream_version(stream.tap_stream_id, state)
@@ -107,11 +106,6 @@ def sync_table(connection, stream, state, desired_columns):
    LOGGER.info('mine_sql: {}'.format(mine_sql))
    LOGGER.info('mine_binds: {}'.format(binds))
 
-   state = singer.write_bookmark(state,
-                                 stream.tap_stream_id,
-                                 'version',
-                                 stream_version)
-
    rows_saved = 0
    columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
    for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
@@ -135,6 +129,10 @@ def sync_table(connection, stream, state, desired_columns):
        state = singer.write_bookmark(state,
                                      stream.tap_stream_id,
                                      'scn',
-                                     cscn)
+                                     int(cscn))
+
        if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
-             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+          singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
+   singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+   return state

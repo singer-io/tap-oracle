@@ -306,6 +306,14 @@ def should_sync_column(metadata, field_name):
 
    return False
 
+
+def send_schema_message(stream, bookmark_properties):
+   schema_message = singer.SchemaMessage(stream=stream.stream,
+                                         schema=stream.schema.to_dict(),
+                                         key_properties=metadata.to_map(stream.metadata).get((), {}).get('key-properties'),
+                                         bookmark_properties=bookmark_properties)
+   singer.write_message(schema_message)
+
 def do_sync(connection, catalog, state):
    streams_to_sync = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
 
@@ -313,30 +321,37 @@ def do_sync(connection, catalog, state):
       #TODO: set currently syncing:
       #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
-      sync_fn = full_table.sync_table
 
-      replication_method = stream_metadata.get((), {}).get('replication-method')
-      if replication_method == 'logminer':
-         if get_bookmark(state, stream.tap_stream_id, 'scn'):
-            sync_fn = log_miner.sync_table
-         log_miner.add_automatic_properties(stream)
-      elif replication_method == 'full_table':
-         sync_fn = full_table.sync_table
-      else:
-         raise Exception("only logminer and full_table are supported right now :)")
-
-      schema_message = singer.SchemaMessage(stream=stream.stream,
-                                            schema=stream.schema.to_dict(),
-                                            key_properties=metadata.to_map(stream.metadata).get((), {}).get('key-properties'),
-                                            bookmark_properties=['scn'])
-      singer.write_message(schema_message)
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
+
       with metrics.job_timer('sync_table') as timer:
          timer.tags['database'] = stream.database
          timer.tags['table'] = stream.table
-         sync_fn(connection, stream, state, desired_columns)
+         replication_method = stream_metadata.get((), {}).get('replication-method')
+         if replication_method == 'logminer':
+            if get_bookmark(state, stream.tap_stream_id, 'scn'):
+               log_miner.add_automatic_properties(stream)
+               send_schema_message(stream, ['scn'])
+               log_miner.sync_table(connection, stream, state, desired_columns)
+
+            else:
+               #start off with full-table replication
+               end_scn = log_miner.fetch_current_scn(connection)
+               send_schema_message(stream, [])
+               state = full_table.sync_table(connection, stream, state, desired_columns)
+
+               #once we are done with full table, write the scn to the state
+               state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
+               singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
+         elif replication_method == 'full_table':
+            send_schema_message(stream, [])
+            full_table.sync_table(connection, stream, state, desired_columns)
+         else:
+            raise Exception("only logminer and full_table are supported right now :)")
+
 
 def main_impl():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
