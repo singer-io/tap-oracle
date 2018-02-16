@@ -15,7 +15,6 @@ LOGGER = get_logger()
 CAUGHT_MESSAGES = []
 
 def singer_write_message(message):
-    LOGGER.info("caught message in singer_write_message")
     CAUGHT_MESSAGES.append(message)
 
 class MineFloats(unittest.TestCase):
@@ -79,12 +78,13 @@ class MineFloats(unittest.TestCase):
 
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
-
+            our_fake_float = decimal.Decimal('1234567.8901234')
+            our_real_float = 1234567.8901234
             crud_up_log_miner_fixtures(cur, 'CHICKEN', {
-                '"our_double_precision"': 1234567.8901234,
-                '"our_real"': 1234567.8901234,
-                '"our_binary_float"': 1234567.8901234,
-                '"our_binary_double"': 1234567.8901234,
+                '"our_double_precision"': our_fake_float,
+                '"our_real"':         our_fake_float,
+                '"our_binary_float"': our_real_float,
+                '"our_binary_double"': our_real_float,
                 '"our_nan"': float('nan'),
                 '"our_+_infinity"': float('+inf'),
                 '"our_-_infinity"': float('-inf')
@@ -94,6 +94,7 @@ class MineFloats(unittest.TestCase):
             LOGGER.info("post SCN: {}".format(post_scn))
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
+            state = write_bookmark(state, chicken_stream.tap_stream_id, 'version', 1)
             tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
             verify_crud_messages(self, CAUGHT_MESSAGES, ['our_float'])
@@ -113,9 +114,9 @@ class MineFloats(unittest.TestCase):
             insert_rec_1.pop('our_nan')
 
             self.assertEqual(insert_rec_1, {
-                                 'our_float': 1.0,
-                                 'our_double_precision': 1234567.890123,
-                                 'our_real': 1234567.890123,
+                                 'our_float': decimal.Decimal('1.0'),
+                                 'our_double_precision': our_fake_float,
+                                 'our_real': our_fake_float,
                                  'our_binary_float': 1234567.88, #weird
                                  'our_binary_double': 1234567.890123,
                                  '_sdc_deleted_at': None})
@@ -133,13 +134,12 @@ class MineFloats(unittest.TestCase):
             self.assertTrue(math.isnan(update_rec.get('our_nan')))
             update_rec.pop('our_nan')
 
-
             self.assertEqual(update_rec, {'our_binary_double': 1234572.890123,
                                           '_sdc_deleted_at': None,
                                           'our_binary_float': 1234572.88,
-                                          'our_float': 1.0,
-                                          'our_double_precision': 1234572.890123,
-                                          'our_real': 1234572.890123})
+                                          'our_float': decimal.Decimal('1'),
+                                          'our_double_precision': decimal.Decimal('1234572.8901234'),
+                                          'our_real': decimal.Decimal('1234572.8901234')})
 
             #verify first DELETE message
             delete_rec = CAUGHT_MESSAGES[9].record
@@ -156,12 +156,13 @@ class MineFloats(unittest.TestCase):
             self.assertIsNotNone(delete_rec.get('_sdc_deleted_at'))
             delete_rec.pop('scn')
             delete_rec.pop('_sdc_deleted_at')
+
             self.assertEqual(delete_rec,
                              {'our_binary_double': 1234572.890123,
                               'our_binary_float': 1234572.88,
-                              'our_float': 1.0,
-                              'our_double_precision': 1234572.890123, 'our_real': 1234572.890123})
-
+                              'our_float': decimal.Decimal('1'),
+                              'our_double_precision': decimal.Decimal('1234572.8901234'),
+                              'our_real': decimal.Decimal('1234572.8901234')})
 
             #verify second DELETE message
             delete_rec_2 = CAUGHT_MESSAGES[11].record
@@ -179,11 +180,13 @@ class MineFloats(unittest.TestCase):
             self.assertIsNotNone(delete_rec_2.get('_sdc_deleted_at'))
             delete_rec_2.pop('scn')
             delete_rec_2.pop('_sdc_deleted_at')
+
             self.assertEqual(delete_rec_2,
                              {'our_binary_double': 1234572.890123,
                               'our_binary_float': 1234572.88,
-                              'our_float': 2.0,
-                              'our_double_precision': 1234572.890123, 'our_real': 1234572.890123})
+                              'our_float': decimal.Decimal('2'),
+                              'our_double_precision': decimal.Decimal('1234572.8901234'),
+                              'our_real': decimal.Decimal('1234572.8901234')})
 
 
 

@@ -83,7 +83,7 @@ def sync_table(connection, stream, state, desired_columns):
                                                    escaped_table)
 
 
-   LOGGER.info("select: %s", select_sql)
+   #LOGGER.info("select: %s", select_sql)
    activate_version_message = singer.ActivateVersionMessage(
       stream=stream.stream,
       version=nascent_stream_version)

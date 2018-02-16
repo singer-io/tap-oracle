@@ -1,4 +1,6 @@
 from singer import get_logger, metadata
+from nose.tools import nottest
+
 import cx_Oracle
 import singer
 import os
@@ -25,7 +27,7 @@ def get_test_connection():
 
     conn_string = '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID=ORCL)))'.format(creds['host'], creds['port'])
 
-    LOGGER.info("{}, {}, {}".format(creds['user'], creds['password'], conn_string))
+    #LOGGER.info("{}, {}, {}".format(creds['user'], creds['password'], conn_string))
     conn = cx_Oracle.connect(creds['user'], creds['password'], conn_string)
 
     return conn
@@ -48,7 +50,7 @@ def build_table(table):
     sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
     return sql
 
-
+@nottest
 def ensure_test_table(table_spec):
     sql = build_table(table_spec)
 
@@ -128,7 +130,7 @@ def insert_record(cursor, table_name, data):
     insert_sql = """ INSERT INTO {}
                             ( {} )
                      VALUES ( {} )""".format(table_name, columns_sql, value_sql)
-    LOGGER.info("INSERT: {}".format(insert_sql))
+    #LOGGER.info("INSERT: {}".format(insert_sql))
     cursor.execute(insert_sql)
 
 def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
@@ -152,7 +154,7 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
                        SET {}""".format(table_name, set_clause)
 
     #now update
-    LOGGER.info("crud_up_log_miner_fixtures UPDATE: {}".format(update_sql))
+    #LOGGER.info("crud_up_log_miner_fixtures UPDATE: {}".format(update_sql))
     cursor.execute(update_sql)
 
 
@@ -162,7 +164,8 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
     return True
 
 def verify_crud_messages(that, caught_messages, pks):
-    that.assertEqual(13, len(caught_messages))
+
+    that.assertEqual(14, len(caught_messages))
     that.assertTrue(isinstance(caught_messages[0], singer.SchemaMessage))
     that.assertTrue(isinstance(caught_messages[1], singer.RecordMessage))
     that.assertTrue(isinstance(caught_messages[2], singer.StateMessage))
@@ -176,6 +179,7 @@ def verify_crud_messages(that, caught_messages, pks):
     that.assertTrue(isinstance(caught_messages[10], singer.StateMessage))
     that.assertTrue(isinstance(caught_messages[11], singer.RecordMessage))
     that.assertTrue(isinstance(caught_messages[12], singer.StateMessage))
+    that.assertTrue(isinstance(caught_messages[13], singer.StateMessage))
 
     #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
     that.assertEqual({"type" : ['integer']}, caught_messages[0].schema.get('properties').get('scn') )

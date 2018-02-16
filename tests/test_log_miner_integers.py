@@ -13,7 +13,6 @@ LOGGER = get_logger()
 CAUGHT_MESSAGES = []
 
 def singer_write_message(message):
-    LOGGER.info("caught message in singer_write_message")
     CAUGHT_MESSAGES.append(message)
 
 class MineInts(unittest.TestCase):
@@ -91,6 +90,7 @@ class MineInts(unittest.TestCase):
             LOGGER.info("post SCN: {}".format(post_scn))
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
+            state = write_bookmark(state, chicken_stream.tap_stream_id, 'version', 1)
             tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
 
             verify_crud_messages(self, CAUGHT_MESSAGES, ['SIZE_PK'])

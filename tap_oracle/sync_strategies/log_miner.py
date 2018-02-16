@@ -103,8 +103,8 @@ def sync_table(connection, stream, state, desired_columns):
            [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
            [stream.table]
 
-   LOGGER.info('mine_sql: {}'.format(mine_sql))
-   LOGGER.info('mine_binds: {}'.format(binds))
+   #_LOGGER.info('mine_sql: {}'.format(mine_sql))
+   #_LOGGER.info('mine_binds: {}'.format(binds))
 
    rows_saved = 0
    columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']

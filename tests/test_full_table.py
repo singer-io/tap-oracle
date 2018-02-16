@@ -18,7 +18,6 @@ LOGGER = get_logger()
 CAUGHT_MESSAGES = []
 
 def singer_write_message(message):
-    LOGGER.info("caught message in singer_write_message: {}".format(message))
     CAUGHT_MESSAGES.append(message)
 
 def expected_record(fixture_row):
