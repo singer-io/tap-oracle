@@ -284,7 +284,10 @@ def do_discovery(connection):
         'is_view': True
      }
 
-   return discover_columns(connection, table_info)
+   catalog = discover_columns(connection, table_info)
+
+   catalog.dump()
+   return catalog
 
 # def update_catalog(conn, catalog, state):
 #    # Filter catalog to include only selected streams
