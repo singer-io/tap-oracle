@@ -81,6 +81,12 @@ def open_connection(config):
 DEFAULT_NUMERIC_PRECISION=38
 DEFAULT_NUMERIC_SCALE=0
 
+def nullable_column(col_name, col_type, pks_for_table):
+   if col_name in pks_for_table:
+      return  [col_type]
+   else:
+      return ['null', col_type]
+
 def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
@@ -89,11 +95,7 @@ def schema_for_column(c, pks_for_table):
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
    if data_type == 'number' and numeric_scale <= 0:
-      if c.column_name in pks_for_table:
-         result.type = ['integer']
-      else:
-         result.type = ['null', 'integer']
-
+      result.type = nullable_column(c.column_name, 'integer', pks_for_table)
       result.minimum = -1 * (10**numeric_precision - 1)
       result.maximum = (10**numeric_precision - 1)
 
@@ -102,10 +104,7 @@ def schema_for_column(c, pks_for_table):
       return result
 
    elif data_type == 'number':
-      if c.column_name in pks_for_table:
-         result.type = ['number']
-      else:
-         result.type = ['null', 'number']
+      result.type = nullable_column(c.column_name, 'number', pks_for_table)
 
       result.exclusiveMaximum = True
       result.maximum = 10 ** (numeric_precision - numeric_scale)
@@ -115,61 +114,40 @@ def schema_for_column(c, pks_for_table):
       return result
 
    elif data_type == 'date' or data_type.startswith("timestamp"):
-      if c.column_name in pks_for_table:
-         result.type = ['string']
-      else:
-         result.type = ['null', 'string']
+      result.type = nullable_column(c.column_name, 'string', pks_for_table)
 
       result.format = 'date-time'
       return result
 
 
    elif data_type in FLOAT_TYPES:
-      if c.column_name in pks_for_table:
-         result.type = ['number']
-      else:
-         result.type = ['null', 'number']
-
+      result.type = nullable_column(c.column_name, 'number', pks_for_table)
       return result
 
    elif data_type in STRING_TYPES:
       character_used = c.character_used
-
-      if c.column_name in pks_for_table:
-         result.type = ['string']
-      else:
-         result.type = ['null', 'string']
+      result.type = nullable_column(c.column_name, 'string', pks_for_table)
 
       if character_used == 'C':
          result.maxLength = c.char_length
       return result
 
+   #these column types are insane. they are NOT actually ieee754 floats
+   #instead they are represented as decimals, but despite this
+   #it appears we can say nothing about their max or min
+
    #"real"
-   elif c.data_type == 'FLOAT' and c.numeric_precision == 63:
-      if c.column_name in pks_for_table:
-         result.type = ['number']
-      else:
-         result.type = ['null', 'number']
-
-      result.exclusiveMaximum = True
-      result.maximum = 10 ** 18
+   elif data_type == 'float' and c.numeric_precision == 63:
+      result.type = nullable_column(c.column_name, 'number', pks_for_table)
       result.multipleOf = 10 ** -18
-      result.exclusiveMinimum = True
-      result.minimum = -10 ** 18
       return result
 
+   #"float", "double_precision",
    elif data_type in ['float', 'double_precision']:
-      if c.column_name in pks_for_table:
-         result.type = ['number']
-      else:
-         result.type = ['null', 'number']
-      result.exclusiveMaximum = True
-      result.maximum = 10 ** 38
-      result.multipleOf = 10 ** -38
-      result.exclusiveMinimum = True
-      result.minimum = -10 ** 38
-      return result
 
+      result.type = nullable_column(c.column_name, 'number', pks_for_table)
+      result.multipleOf = 10 ** -38
+      return result
 
    return Schema(None)
 
