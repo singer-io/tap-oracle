@@ -48,6 +48,7 @@ def build_table(table):
        pk_sql = ""
 
     sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
+
     return sql
 
 @nottest

@@ -105,7 +105,6 @@ def schema_for_column(c, pks_for_table):
       result.format = 'date-time'
       return result
 
-
    elif data_type in FLOAT_TYPES:
       result.type = nullable_column(c.column_name, 'number', pks_for_table)
       return result
@@ -173,14 +172,19 @@ def produce_pk_constraints(conn):
 def produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas):
    mdata = {}
 
-   metadata.write(mdata, (), 'key-properties', pk_constraints.get(table_schema, {}).get(table_name, []))
+   table_pks = pk_constraints.get(table_schema, {}).get(table_name, [])
+
+   #NB> sadly, some system tables like XDB$STATS have P constraints for columns that do not exist so we must protect against this
+   table_pks = list(filter(lambda pk: column_schemas.get(pk, Schema(None)).type is not None, table_pks))
+
+   metadata.write(mdata, (), 'key-properties', table_pks)
    metadata.write(mdata, (), 'schema-name', table_schema)
 
    for c_name in column_schemas:
-      if c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
-         metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
-      elif column_schemas[c_name].type is None:
+      if column_schemas[c_name].type is None:
          metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
+      elif c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
+         metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
       else:
          metadata.write(mdata, ('properties', c_name), 'inclusion', 'available')
 
@@ -292,8 +296,6 @@ def send_schema_message(stream, bookmark_properties):
    singer.write_message(schema_message)
 
 def do_sync(connection, catalog, state):
-
-
    streams = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
 
