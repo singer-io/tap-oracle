@@ -58,7 +58,7 @@ REQUIRED_CONFIG_KEYS = [
 ]
 
 def make_dsn(config):
-   return cx_Oracle.makedsn(config["host"], config["port"], 'ORCL')
+   return cx_Oracle.makedsn(config["host"], config["port"], config["sid"])
 
 def open_connection(config):
     conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))

@@ -15,19 +15,20 @@ def get_test_connection():
     missing_envs = [x for x in [os.getenv('TAP_ORACLE_HOST'),
                                 os.getenv('TAP_ORACLE_USER'),
                                 os.getenv('TAP_ORACLE_PASSWORD'),
-                                os.getenv('TAP_ORACLE_PORT')] if x == None]
+                                os.getenv('TAP_ORACLE_PORT'),
+                                os.getenv('TAP_ORACLE_SID')] if x == None]
     if len(missing_envs) != 0:
         #pylint: disable=line-too-long
-        raise Exception("set TAP_ORACLE_HOST, TAP_ORACLE_USER, TAP_ORACLE_PASSWORD, TAP_ORACLE_PORT")
+        raise Exception("set TAP_ORACLE_HOST, TAP_ORACLE_USER, TAP_ORACLE_PASSWORD, TAP_ORACLE_PORT, TAP_ORACLE_SID")
 
     creds['host'] = os.environ.get('TAP_ORACLE_HOST')
     creds['user'] = os.environ.get('TAP_ORACLE_USER')
     creds['password'] = os.environ.get('TAP_ORACLE_PASSWORD')
     creds['port'] = os.environ.get('TAP_ORACLE_PORT')
+    creds['sid'] = os.environ.get('TAP_ORACLE_SID')
 
-    conn_string = '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID=ORCL)))'.format(creds['host'], creds['port'])
+    conn_string = '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID={})))'.format(creds['host'], creds['port'], creds['sid'])
 
-    #LOGGER.info("{}, {}, {}".format(creds['user'], creds['password'], conn_string))
     conn = cx_Oracle.connect(creds['user'], creds['password'], conn_string)
 
     return conn
