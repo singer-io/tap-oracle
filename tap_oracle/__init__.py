@@ -289,14 +289,6 @@ def do_discovery(connection):
    catalog.dump()
    return catalog
 
-# def update_catalog(conn, catalog, state):
-#    # Filter catalog to include only selected streams
-#    streams_to_sync = list(filter(lambda stream: stream.is_selected(), old_catalog.streams))
-
-#    result = Catalog(streams=[])
-#    # merge in selections from existing catalog
-
-
 def should_sync_column(metadata, field_name):
    if metadata.get(('properties', field_name), {}).get('inclusion') == 'unsupported':
       return False
@@ -309,7 +301,6 @@ def should_sync_column(metadata, field_name):
 
    return False
 
-
 def send_schema_message(stream, bookmark_properties):
    schema_message = singer.SchemaMessage(stream=stream.stream,
                                          schema=stream.schema.to_dict(),
@@ -319,12 +310,17 @@ def send_schema_message(stream, bookmark_properties):
 
 def do_sync(connection, catalog, state):
    streams_to_sync = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
+   streams_to_sync.sort(key=lambda s: s.table)
+
+   currently_syncing = singer.get_currently_syncing(state)
+   current_index = next((index for (index, s) in enumerate(streams_to_sync) if s.tap_stream_id == currently_syncing), 0)
+
+   streams_to_sync = streams_to_sync[current_index:]
 
    for stream in streams_to_sync:
       #TODO: set currently syncing:
-      #state = singer.set_currently_syncing(state, catalog_entry.tap_stream_id)
+      state = singer.set_currently_syncing(state, stream.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
-
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
