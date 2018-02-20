@@ -153,16 +153,17 @@ class FullTable(unittest.TestCase):
             insert_record(cur, 'CHICKEN', rec_2)
 
             state = {}
-            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+            tap_oracle.do_sync(conn, catalog, state)
 
             #messages: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
-            self.assertEqual(6, len(CAUGHT_MESSAGES))
+            self.assertEqual(7, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.ActivateVersionMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
 
             state = CAUGHT_MESSAGES[1].value
             version = state.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
@@ -233,14 +234,15 @@ class FullTable(unittest.TestCase):
 
             #run another do_sync
             CAUGHT_MESSAGES.clear()
-            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+            tap_oracle.do_sync(conn, catalog, state)
 
-            self.assertEqual(5, len(CAUGHT_MESSAGES))
+            self.assertEqual(6, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.StateMessage))
 
             nascent_version = CAUGHT_MESSAGES[1].value.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
             self.assertTrue( nascent_version > version)

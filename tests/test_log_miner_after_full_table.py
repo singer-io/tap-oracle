@@ -112,7 +112,7 @@ class FullTable(unittest.TestCase):
 
             insert_record(cur, 'CHICKEN', rec_2)
 
-            original_state = tap_oracle.build_state({}, catalog)
+            original_state = {}
             #initial run should be full_table
             tap_oracle.do_sync(conn, catalog, original_state)
 
@@ -147,7 +147,7 @@ class FullTable(unittest.TestCase):
             insert_record(cur, 'CHICKEN', rec_3)
 
             #this sync should activate logminer because of the scn in state
-            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+            tap_oracle.do_sync(conn, catalog, state)
 
             #TODO: assert new scn
             self.assertEqual(3, len(CAUGHT_MESSAGES))

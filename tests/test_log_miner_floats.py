@@ -95,7 +95,7 @@ class MineFloats(unittest.TestCase):
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             state = write_bookmark(state, chicken_stream.tap_stream_id, 'version', 1)
-            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+            tap_oracle.do_sync(conn, catalog, state)
 
             verify_crud_messages(self, CAUGHT_MESSAGES, ['our_float'])
 
