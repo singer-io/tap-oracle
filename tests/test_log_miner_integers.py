@@ -1,6 +1,6 @@
 import unittest
 import os
-import cx_Oracle, sys, string, _thread, datetime
+import cx_Oracle, sys, string, datetime
 import tap_oracle
 import pdb
 import singer
