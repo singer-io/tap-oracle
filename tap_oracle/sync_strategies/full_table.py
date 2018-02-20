@@ -4,6 +4,7 @@ from singer import utils, write_message, get_bookmark
 import singer.metadata as metadata
 from singer.schema import Schema
 import tap_oracle.db as orc_db
+import singer.metrics as metrics
 import copy
 import pdb
 import time
@@ -89,10 +90,11 @@ def sync_table(connection, stream, state, desired_columns):
    if first_run:
       singer.write_message(activate_version_message)
 
-   rows_saved = 0
-   for row in cur.execute(select_sql):
-      record_message = row_to_singer_message(stream, row, nascent_stream_version, desired_columns, time_extracted)
-      singer.write_message(record_message)
+   with metrics.record_counter(None) as counter:
+      for row in cur.execute(select_sql):
+         record_message = row_to_singer_message(stream, row, nascent_stream_version, desired_columns, time_extracted)
+         singer.write_message(record_message)
+         counter.increment()
 
    #always send the activate version whether first run or subsequent
    singer.write_message(activate_version_message)
