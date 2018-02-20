@@ -99,6 +99,4 @@ def sync_table(connection, stream, state, desired_columns):
    #always send the activate version whether first run or subsequent
    singer.write_message(activate_version_message)
 
-   #TODO: if we end using rowids, remember to write the last one here
-   #singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
    return state

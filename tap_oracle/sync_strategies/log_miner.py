@@ -134,5 +134,4 @@ def sync_table(connection, stream, state, desired_columns):
        if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
           singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
-   singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
    return state

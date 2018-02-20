@@ -91,43 +91,45 @@ class CurrentlySyncing(unittest.TestCase):
             state = {}
             #this will sync the CHICKEN but then blow up on the COW
             try:
-                tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(state, catalog))
+                tap_oracle.do_sync(conn, catalog, state)
             except:
                 blew_up_on_cow = True
 
             self.assertTrue(blew_up_on_cow)
-            self.assertEqual(8, len(CAUGHT_MESSAGES))
+            self.assertEqual(9, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.ActivateVersionMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
             self.assertEqual('CHICKEN', CAUGHT_MESSAGES[3].stream)
             self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.StateMessage))
+            self.assertEqual(None, singer.get_currently_syncing( CAUGHT_MESSAGES[5].value))
 
             #cow messages
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.SchemaMessage))
-            self.assertEqual("COW", CAUGHT_MESSAGES[5].stream)
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
-            old_state = CAUGHT_MESSAGES[6].value
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.SchemaMessage))
+            self.assertEqual("COW", CAUGHT_MESSAGES[6].stream)
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.StateMessage))
+            old_state = CAUGHT_MESSAGES[7].value
             self.assertEqual("ROOT-COW", old_state.get('currently_syncing'))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.ActivateVersionMessage))
 
 
             #run another do_sync
             singer.write_message = singer_write_message_ok
             CAUGHT_MESSAGES.clear()
-            tap_oracle.do_sync(conn, catalog, tap_oracle.build_state(old_state, catalog))
+            tap_oracle.do_sync(conn, catalog, old_state)
 
-            self.assertEqual(4, len(CAUGHT_MESSAGES))
+            self.assertEqual(5, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
+            self.assertEqual("ROOT-COW", singer.get_currently_syncing(CAUGHT_MESSAGES[1].value))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.RecordMessage))
             self.assertEqual('COW', CAUGHT_MESSAGES[2].stream)
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
 
-            currently_syncing = state.get('currently_syncing')
-            self.assertEqual(None, currently_syncing)
-
+            self.assertEqual(None, singer.get_currently_syncing( CAUGHT_MESSAGES[4].value))
 
 
 

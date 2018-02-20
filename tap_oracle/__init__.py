@@ -57,20 +57,6 @@ REQUIRED_CONFIG_KEYS = [
     'password'
 ]
 
-def build_state(old_state, catalog):
-   LOGGER.info('Building new State from old state %s', old_state)
-
-   #TODO: currently_syncing
-
-   #TODO: check if replication keys have changed IFF we support incremental rep
-
-   #TODO: move over SCN
-
-   #TODO: move over version IFF we support incremental rep
-
-   new_state = copy.deepcopy(old_state)
-   return new_state
-
 def make_dsn(config):
    return cx_Oracle.makedsn(config["host"], config["port"], 'ORCL')
 
@@ -191,9 +177,6 @@ def produce_column_metadata(connection, table_schema, table_name, pk_constraints
    metadata.write(mdata, (), 'schema-name', table_schema)
 
    for c_name in column_schemas:
-      # if table_name == 'CHICKEN' and c_name == 'BAD_COLUMN':
-      #    pdb.set_trace()
-
       if c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
          metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
       elif column_schemas[c_name].type is None:
@@ -309,15 +292,17 @@ def send_schema_message(stream, bookmark_properties):
    singer.write_message(schema_message)
 
 def do_sync(connection, catalog, state):
-   streams_to_sync = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
-   streams_to_sync.sort(key=lambda s: s.table)
+
+
+   streams = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
+   streams.sort(key=lambda s: s.tap_stream_id)
 
    currently_syncing = singer.get_currently_syncing(state)
-   current_index = next((index for (index, s) in enumerate(streams_to_sync) if s.tap_stream_id == currently_syncing), 0)
 
-   streams_to_sync = streams_to_sync[current_index:]
+   if currently_syncing:
+      streams = dropwhile(lambda s: s.tap_stream_id != currently_syncing, streams)
 
-   for stream in streams_to_sync:
+   for stream in streams:
       #TODO: set currently syncing:
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
@@ -333,7 +318,7 @@ def do_sync(connection, catalog, state):
             if get_bookmark(state, stream.tap_stream_id, 'scn'):
                log_miner.add_automatic_properties(stream)
                send_schema_message(stream, ['scn'])
-               log_miner.sync_table(connection, stream, state, desired_columns)
+               state = log_miner.sync_table(connection, stream, state, desired_columns)
 
             else:
                #start off with full-table replication
@@ -343,13 +328,16 @@ def do_sync(connection, catalog, state):
 
                #once we are done with full table, write the scn to the state
                state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
-               singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+               # singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
          elif replication_method == 'full_table':
             send_schema_message(stream, [])
-            full_table.sync_table(connection, stream, state, desired_columns)
+            state = full_table.sync_table(connection, stream, state, desired_columns)
          else:
             raise Exception("only logminer and full_table are supported right now :)")
+
+      state = singer.set_currently_syncing(state, None)
+      singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
 
 def main_impl():
@@ -359,7 +347,7 @@ def main_impl():
     if args.discover:
         do_discovery(connection)
     elif args.catalog:
-       state = build_state(args.state, args.catalog)
+       state = args.state
        do_sync(connection, args.catalog, state)
     else:
         LOGGER.info("No properties were selected")
