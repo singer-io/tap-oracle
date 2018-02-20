@@ -103,7 +103,7 @@ class MineStrings(unittest.TestCase):
                                     'name-varchar2-explicit-char': 'name-varchar2-explicit-char I',
                                     'NAME_NCHAR': 'name-nchar I                                                                                                               ',
                                     'name-char-explicit-byte': 'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
-                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': '1'})
+                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte I', 'ID': 1})
 
 
             #verify UPDATE
@@ -116,7 +116,7 @@ class MineStrings(unittest.TestCase):
                                     'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
                                     'NAME_NCHAR': 'name-nchar II                                                                                                              ',
                                     'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
-                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
+                                    '_sdc_deleted_at': None, 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': 1})
 
 
             #verify first DELETE message
@@ -131,7 +131,7 @@ class MineStrings(unittest.TestCase):
                                                  'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
                                                  'NAME_NCHAR': 'name-nchar II                                                                                                              ',
                                                  'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
-                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '1'})
+                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': 1})
 
 
             #verify second DELETE message
@@ -146,7 +146,7 @@ class MineStrings(unittest.TestCase):
                                                  'name-varchar2-explicit-char': 'name-varchar2-explicit-char II',
                                                  'NAME_NCHAR': 'name-nchar II                                                                                                              ',
                                                  'name-char-explicit-byte': 'name-char-explicit-byte II                                                                                                                                                                                                                                ',
-                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': '2'})
+                                                 'name-varchar-explicit-byte': 'name-varchar-explicit-byte II', 'ID': 2})
 
 
 
