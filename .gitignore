@@ -106,3 +106,4 @@ ENV/
 env-vars.txt
 tap_oracle/__pycache__/
 *~
+config.json
