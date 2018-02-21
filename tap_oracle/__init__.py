@@ -314,8 +314,11 @@ def send_schema_message(stream, bookmark_properties):
                                          bookmark_properties=bookmark_properties)
    singer.write_message(schema_message)
 
+def is_selected_via_metadata(mdata):
+   return metadata.to_map(mdata).get(()).get('selected')
+
 def do_sync(connection, catalog, state):
-   streams = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
+   streams = list(filter(lambda stream: is_selected_via_metadata(stream.metadata), catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
 
    currently_syncing = singer.get_currently_syncing(state)
