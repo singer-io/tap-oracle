@@ -168,8 +168,13 @@ def produce_pk_constraints(conn):
 
    return pk_constraints;
 
+def get_database_name(connection):
+   cur = connection.cursor()
 
-def produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas):
+   rows = cur.execute("SELECT name FROM v$database").fetchall()
+   return rows[0][0]
+
+def produce_column_metadata(connection, table_info, table_schema, table_name, pk_constraints, column_schemas):
    mdata = {}
 
    table_pks = pk_constraints.get(table_schema, {}).get(table_name, [])
@@ -177,8 +182,19 @@ def produce_column_metadata(connection, table_schema, table_name, pk_constraints
    #NB> sadly, some system tables like XDB$STATS have P constraints for columns that do not exist so we must protect against this
    table_pks = list(filter(lambda pk: column_schemas.get(pk, Schema(None)).type is not None, table_pks))
 
+   database_name = get_database_name(connection)
+
    metadata.write(mdata, (), 'key-properties', table_pks)
    metadata.write(mdata, (), 'schema-name', table_schema)
+   metadata.write(mdata, (), 'database-name', database_name)
+
+   if table_schema in table_info and table_name in table_info[table_schema]:
+      metadata.write(mdata, (), 'is-view', table_info[table_schema][table_name]['is_view'])
+
+      row_count = table_info[table_schema][table_name].get('row_count')
+
+      if row_count is not None:
+         metadata.write(mdata, (), 'row-count', row_count)
 
    for c_name in column_schemas:
       if column_schemas[c_name].type is None:
@@ -222,7 +238,13 @@ def discover_columns(connection, table_info):
       column_schemas = {c.column_name : schema_for_column(c, pks_for_table) for c in cols}
       schema = Schema(type='object', properties=column_schemas)
 
-      md = produce_column_metadata(connection, table_schema, table_name, pk_constraints, column_schemas)
+      md = produce_column_metadata(connection,
+                                   table_info,
+                                   table_schema,
+                                   table_name,
+                                   pk_constraints,
+                                   column_schemas)
+
       entry = CatalogEntry(
          table=table_name,
          stream=table_name,
@@ -230,9 +252,6 @@ def discover_columns(connection, table_info):
          tap_stream_id=table_schema + '-' + table_name,
          schema=schema)
 
-      if table_schema in table_info and table_name in table_info[table_schema]:
-         entry.row_count = table_info[table_schema][table_name].get('row_count')
-         entry.is_view = table_info[table_schema][table_name]['is_view']
       entries.append(entry)
 
    return Catalog(entries)
