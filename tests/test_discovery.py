@@ -1,6 +1,7 @@
 import unittest
 import cx_Oracle, sys, string, datetime
 import tap_oracle
+import os
 import pdb
 from singer import get_logger
 from tests.utils import get_test_connection, ensure_test_table
@@ -33,15 +34,18 @@ class TestStringTableWithPK(unittest.TestCase):
             stream_dict = chicken_streams[0].to_dict()
 
             self.assertEqual('CHICKEN', stream_dict.get('table_name'))
-            self.assertEqual(False, stream_dict.get('is_view'))
-            self.assertEqual(0, stream_dict.get('row_count'))
             self.assertEqual('CHICKEN', stream_dict.get('stream'))
             self.assertEqual('ROOT-CHICKEN', stream_dict.get('tap_stream_id'))
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
             self.assertEqual(stream_dict.get('metadata'),
-                             [{'metadata': {'key-properties': ['ID'], 'schema-name': 'ROOT'}, 'breadcrumb': ()},
+                             [{'metadata': {'key-properties': ['ID'],
+                                            'database-name': os.getenv('TAP_ORACLE_SID'),
+                                            'schema-name': 'ROOT',
+                                            'is-view': False,
+                                            'row-count': 0},
+                               'breadcrumb': ()},
                               {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-byte')},
                               {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-char')},
@@ -111,9 +115,12 @@ class TestIntegerTablePK(unittest.TestCase):
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
                               'tap_stream_id': 'ROOT-CHICKEN',
-                              'is_view': False,
-                              'row_count': 0,
-                              'metadata': [{'metadata': {'key-properties': ['SIZE_PK'], 'schema-name': 'ROOT'}, 'breadcrumb': ()},
+                              'metadata': [{'metadata': {'key-properties': ['SIZE_PK'],
+                                                         'database-name': os.getenv('TAP_ORACLE_SID'),
+                                                         'schema-name': 'ROOT',
+                                                         'is-view': False,
+                                                         'row-count': 0},
+                                            'breadcrumb': ()},
                                            {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'SIZE_PK')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_*_0')},
                                            {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
@@ -162,9 +169,12 @@ class TestDecimalPK(unittest.TestCase):
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
                               'tap_stream_id': 'ROOT-CHICKEN',
-                              'is_view': False,
-                              'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ['our_number'], 'schema-name': 'ROOT' }},
+                              'metadata': [{'breadcrumb': (),
+                                            'metadata': {'key-properties': ['our_number'],
+                                                         'database-name': os.getenv('TAP_ORACLE_SID'),
+                                                         'schema-name': 'ROOT',
+                                                         'is-view': False,
+                                                         'row-count': 0}},
                                            {'breadcrumb': ('properties', 'our_number'), 'metadata': {'inclusion': 'automatic'}},
                                            {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available'}}]},
@@ -199,11 +209,13 @@ class TestDatesTablePK(unittest.TestCase):
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
                               'tap_stream_id': 'ROOT-CHICKEN',
-                              'is_view': False,
-                              'row_count': 0,
                               'metadata':
-                              [{'breadcrumb': (), 'metadata': {'key-properties': ['our_date'],
-                                                               'schema-name': 'ROOT'}},
+                              [{'breadcrumb': (),
+                                'metadata': {'key-properties': ['our_date'],
+                                             'database-name': os.getenv('TAP_ORACLE_SID'),
+                                             'schema-name': 'ROOT',
+                                             'is-view': 0,
+                                             'row-count': 0}},
                                {'breadcrumb': ('properties', 'our_date'),
                                 'metadata': {'inclusion': 'automatic'}},
                                {'breadcrumb': ('properties', 'our_ts'),
@@ -248,9 +260,12 @@ class TestFloatTablePK(unittest.TestCase):
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
                               'tap_stream_id': 'ROOT-CHICKEN',
-                              'is_view': False,
-                              'row_count': 0,
-                              'metadata': [{'breadcrumb': (), 'metadata': {'key-properties': ["our_float"], 'schema-name': 'ROOT'}},
+                              'metadata': [{'breadcrumb': (),
+                                            'metadata': {'key-properties': ["our_float"],
+                                                         'database-name': os.getenv('TAP_ORACLE_SID'),
+                                                         'schema-name': 'ROOT',
+                                                         'is-view': False,
+                                                         'row-count': 0}},
                                            {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available'}},
                                            {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available'}},
