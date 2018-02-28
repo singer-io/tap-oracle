@@ -10,6 +10,7 @@ from singer.schema import Schema
 import tap_oracle.db as orc_db
 import copy
 import pdb
+import pytz
 import time
 
 LOGGER = singer.get_logger()
@@ -119,7 +120,7 @@ def sync_table(connection, stream, state, desired_columns):
             redo_vals += [cscn, None]
             record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
          elif op == 'DELETE':
-            undo_vals += [cscn, commit_ts]
+            undo_vals += [cscn, singer.utils.strftime(commit_ts.replace(tzinfo=pytz.UTC))]
             record_message = row_to_singer_message(stream, undo_vals, stream_version, columns_for_record, time_extracted)
          else:
             raise Exception("unrecognized logminer operation: {}".format(op))
@@ -132,6 +133,7 @@ def sync_table(connection, stream, state, desired_columns):
                                        stream.tap_stream_id,
                                        'scn',
                                        int(cscn))
+
 
          if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))

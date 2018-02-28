@@ -51,16 +51,19 @@ FLOAT_TYPES = set([
 ])
 
 REQUIRED_CONFIG_KEYS = [
+    'sid',
     'host',
     'port',
     'user',
-    'password'
+    'password',
+    'default_replication_method'
 ]
 
 def make_dsn(config):
    return cx_Oracle.makedsn(config["host"], config["port"], config["sid"])
 
 def open_connection(config):
+    LOGGER.info("dsn: %s", make_dsn(config))
     conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))
     return conn
 
@@ -295,8 +298,12 @@ def send_schema_message(stream, bookmark_properties):
                                          bookmark_properties=bookmark_properties)
    singer.write_message(schema_message)
 
-def do_sync(connection, catalog, state):
-   streams = list(filter(lambda stream: stream.is_selected_via_metadata(), catalog.streams))
+def is_selected_via_metadata(stream):
+   table_md = metadata.to_map(stream.metadata).get((), {})
+   return table_md.get('selected')
+
+def do_sync(connection, catalog, default_replication_method, state):
+   streams = list(filter(lambda stream: is_selected_via_metadata(stream), catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
 
    currently_syncing = singer.get_currently_syncing(state)
@@ -312,7 +319,7 @@ def do_sync(connection, catalog, state):
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
 
-      replication_method = stream_metadata.get((), {}).get('replication-method')
+      replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
       if replication_method == 'logminer':
          if get_bookmark(state, stream.tap_stream_id, 'scn'):
             log_miner.add_automatic_properties(stream)
@@ -327,7 +334,6 @@ def do_sync(connection, catalog, state):
 
             #once we are done with full table, write the scn to the state
             state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
-            # singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
       elif replication_method == 'full_table':
          send_schema_message(stream, [])
@@ -347,7 +353,7 @@ def main_impl():
         do_discovery(connection)
     elif args.catalog:
        state = args.state
-       do_sync(connection, args.catalog, state)
+       do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
     else:
         LOGGER.info("No properties were selected")
 
