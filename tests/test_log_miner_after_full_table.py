@@ -27,6 +27,11 @@ def expected_record(fixture_row):
 
     return expected_record
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
 class FullTable(unittest.TestCase):
     maxDiff = None
     def setUp(self):
@@ -91,7 +96,7 @@ class FullTable(unittest.TestCase):
             chicken_stream = unselect_column(chicken_stream, 'NO_SYNC')
 
             #select logminer
-            chicken_stream = set_replication_method_for_stream(chicken_stream, 'logminer')
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'LOG_BASED')
             cur = conn.cursor()
 
             rec_1 = {
@@ -114,7 +119,7 @@ class FullTable(unittest.TestCase):
 
             original_state = {}
             #initial run should be full_table
-            tap_oracle.do_sync(conn, catalog, original_state)
+            tap_oracle.do_sync(conn, catalog, None, original_state)
 
             #messages for initial full table replication: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
             self.assertEqual(7, len(CAUGHT_MESSAGES))
@@ -147,7 +152,7 @@ class FullTable(unittest.TestCase):
             insert_record(cur, 'CHICKEN', rec_3)
 
             #this sync should activate logminer because of the scn in state
-            tap_oracle.do_sync(conn, catalog, state)
+            tap_oracle.do_sync(conn, catalog, None, state)
 
             #TODO: assert new scn
             self.assertEqual(3, len(CAUGHT_MESSAGES))

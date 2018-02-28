@@ -27,6 +27,12 @@ def expected_record(fixture_row):
 
     return expected_record
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
+
 class FullTable(unittest.TestCase):
     maxDiff = None
     def setUp(self):
@@ -89,7 +95,7 @@ class FullTable(unittest.TestCase):
 
             #unselect the NO_SYNC column
             chicken_stream = unselect_column(chicken_stream, 'NO_SYNC')
-            chicken_stream = set_replication_method_for_stream(chicken_stream, 'full_table')
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'FULL_TABLE')
             cur = conn.cursor()
 
             our_date = datetime.date(1996, 6, 6)
@@ -153,7 +159,7 @@ class FullTable(unittest.TestCase):
             insert_record(cur, 'CHICKEN', rec_2)
 
             state = {}
-            tap_oracle.do_sync(conn, catalog, state)
+            tap_oracle.do_sync(conn, catalog, None, state)
 
             #messages: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
             self.assertEqual(7, len(CAUGHT_MESSAGES))
@@ -234,7 +240,7 @@ class FullTable(unittest.TestCase):
 
             #run another do_sync
             CAUGHT_MESSAGES.clear()
-            tap_oracle.do_sync(conn, catalog, state)
+            tap_oracle.do_sync(conn, catalog, None, state)
 
             self.assertEqual(6, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))

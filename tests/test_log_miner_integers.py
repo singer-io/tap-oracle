@@ -15,6 +15,11 @@ CAUGHT_MESSAGES = []
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
 class MineInts(unittest.TestCase):
     maxDiff = None
     def setUp(self):
@@ -70,7 +75,7 @@ class MineInts(unittest.TestCase):
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
-            chicken_stream = set_replication_method_for_stream(chicken_stream, 'logminer')
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'LOG_BASED')
 
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
@@ -91,7 +96,7 @@ class MineInts(unittest.TestCase):
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             state = write_bookmark(state, chicken_stream.tap_stream_id, 'version', 1)
-            tap_oracle.do_sync(conn, catalog, state)
+            tap_oracle.do_sync(conn, catalog, None, state)
 
             verify_crud_messages(self, CAUGHT_MESSAGES, ['SIZE_PK'])
 

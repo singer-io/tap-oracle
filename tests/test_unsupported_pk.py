@@ -17,6 +17,11 @@ LOGGER = get_logger()
 
 CAUGHT_MESSAGES = []
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
 
@@ -55,7 +60,7 @@ class UnsupportedPK(unittest.TestCase):
 
             chicken_stream = select_all_of_stream(chicken_stream)
 
-            chicken_stream = set_replication_method_for_stream(chicken_stream, 'full_table')
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'FULL_TABLE')
             cur = conn.cursor()
 
             cur.execute("""
@@ -64,7 +69,7 @@ class UnsupportedPK(unittest.TestCase):
                )""")
 
             state = {}
-            tap_oracle.do_sync(conn, catalog, state)
+            tap_oracle.do_sync(conn, catalog, None, state)
 
 
             #messages: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion

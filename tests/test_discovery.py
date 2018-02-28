@@ -8,6 +8,11 @@ from tests.utils import get_test_connection, ensure_test_table
 
 LOGGER = get_logger()
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
 class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
     def setUp(self):

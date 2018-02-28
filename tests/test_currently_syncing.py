@@ -34,6 +34,11 @@ def expected_record(fixture_row):
 
     return expected_record
 
+def do_not_dump_catalog(catalog):
+    pass
+
+tap_oracle.dump_catalog = do_not_dump_catalog
+
 class CurrentlySyncing(unittest.TestCase):
     maxDiff = None
     def setUp(self):
@@ -51,13 +56,6 @@ class CurrentlySyncing(unittest.TestCase):
                             "name" : "COW"}
             ensure_test_table(table_spec_2)
 
-            # table_spec_3 = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
-            #                             {"name" : 'name', "type": "varchar2(250)"},
-            #                             {"name" : 'colour', "type": "varchar2(250)"}],
-            #                 "name" : "TIGER"}
-            # ensure_test_table(table_spec_3)
-
-
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow
 
@@ -68,15 +66,11 @@ class CurrentlySyncing(unittest.TestCase):
 
             cow_stream = [s for s in catalog.streams if s.table == 'COW'][0]
             cow_stream = select_all_of_stream(cow_stream)
-            cow_stream = set_replication_method_for_stream(cow_stream, 'full_table')
+            cow_stream = set_replication_method_for_stream(cow_stream, 'FULL_TABLE')
 
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
-            chicken_stream = set_replication_method_for_stream(chicken_stream, 'full_table')
-
-            # tiger_stream = [s for s in catalog.streams if s.table == 'TIGER'][0]
-            # tiger_stream = select_all_of_stream(tiger_stream)
-            # tiger_stream = set_replication_method_for_stream(tiger_stream, 'full_table')
+            chicken_stream = set_replication_method_for_stream(chicken_stream, 'FULL_TABLE')
 
             cur = conn.cursor()
 
@@ -84,15 +78,12 @@ class CurrentlySyncing(unittest.TestCase):
             insert_record(cur, 'COW', cow_rec)
             chicken_rec = {'NAME' : 'fred', 'colour' : 'red'}
             insert_record(cur, 'CHICKEN', chicken_rec)
-            # tiger_rec = {'NAME' : 'tony', 'colour' : 'turquoise'}
-            # insert_record(cur, 'TIGER', tiger_rec)
-
 
             state = {}
             #this will sync the CHICKEN but then blow up on the COW
             try:
-                tap_oracle.do_sync(conn, catalog, state)
-            except:
+                tap_oracle.do_sync(conn, catalog, None, state)
+            except Exception:
                 blew_up_on_cow = True
 
             self.assertTrue(blew_up_on_cow)
@@ -118,7 +109,7 @@ class CurrentlySyncing(unittest.TestCase):
             #run another do_sync
             singer.write_message = singer_write_message_ok
             CAUGHT_MESSAGES.clear()
-            tap_oracle.do_sync(conn, catalog, old_state)
+            tap_oracle.do_sync(conn, catalog, None, old_state)
 
             self.assertEqual(5, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))

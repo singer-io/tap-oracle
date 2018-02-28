@@ -259,6 +259,9 @@ def discover_columns(connection, table_info):
 
    return Catalog(entries)
 
+def dump_catalog(catalog):
+   catalog.dump()
+
 def do_discovery(connection):
    cur = connection.cursor()
    row_counts = produce_row_counts(connection)
@@ -294,8 +297,7 @@ def do_discovery(connection):
      }
 
    catalog = discover_columns(connection, table_info)
-
-   catalog.dump()
+   dump_catalog(catalog)
    return catalog
 
 def should_sync_column(metadata, field_name):
@@ -338,7 +340,7 @@ def do_sync(connection, catalog, default_replication_method, state):
       desired_columns.sort()
 
       replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
-      if replication_method == 'logminer':
+      if replication_method == 'LOG_BASED':
          if get_bookmark(state, stream.tap_stream_id, 'scn'):
             log_miner.add_automatic_properties(stream)
             send_schema_message(stream, ['scn'])
@@ -353,11 +355,11 @@ def do_sync(connection, catalog, default_replication_method, state):
             #once we are done with full table, write the scn to the state
             state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
 
-      elif replication_method == 'full_table':
+      elif replication_method == 'FULL_TABLE':
          send_schema_message(stream, [])
          state = full_table.sync_table(connection, stream, state, desired_columns)
       else:
-         raise Exception("only logminer and full_table are supported right now :)")
+         raise Exception("only LOG_BASED and FULL_TABLE are supported right now :)")
 
       state = singer.set_currently_syncing(state, None)
       singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
