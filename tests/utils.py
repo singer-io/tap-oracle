@@ -76,7 +76,7 @@ def set_replication_method_for_stream(stream, method):
     old_md = new_md.get(())
     old_md.update({'replication-method': method})
 
-    stream.metadatata = metadata.to_list(new_md)
+    stream.metadata = metadata.to_list(new_md)
     return stream
 
 def select_all_of_stream(stream):
@@ -90,7 +90,7 @@ def select_all_of_stream(stream):
             old_md = new_md.get(('properties', col_name))
             old_md.update({'selected' : True})
 
-    stream.metadatata = metadata.to_list(new_md)
+    stream.metadata = metadata.to_list(new_md)
     return stream
 
 
