@@ -187,7 +187,7 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
 
    database_name = get_database_name(connection)
 
-   metadata.write(mdata, (), 'key-properties', table_pks)
+   metadata.write(mdata, (), 'table-key-properties', table_pks)
    metadata.write(mdata, (), 'schema-name', table_schema)
    metadata.write(mdata, (), 'database-name', database_name)
 
@@ -315,7 +315,7 @@ def should_sync_column(metadata, field_name):
 def send_schema_message(stream, bookmark_properties):
    schema_message = singer.SchemaMessage(stream=stream.stream,
                                          schema=stream.schema.to_dict(),
-                                         key_properties=metadata.to_map(stream.metadata).get((), {}).get('key-properties'),
+                                         key_properties=metadata.to_map(stream.metadata).get((), {}).get('table-key-properties'),
                                          bookmark_properties=bookmark_properties)
    singer.write_message(schema_message)
 

@@ -53,7 +53,7 @@ class UnsupportedPK(unittest.TestCase):
 
             catalog = tap_oracle.do_discovery(conn)
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
-            key_properties = metadata.to_map(chicken_stream.metadata).get(()).get('key-properties')
+            key_properties = metadata.to_map(chicken_stream.metadata).get(()).get('table-key-properties')
 
             #interval_column SHOULD BE unsupported
             self.assertEqual([], key_properties)
