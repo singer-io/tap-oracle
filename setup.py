@@ -8,6 +8,7 @@ setup(name='tap-oracle',
       author='Stitch',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
+      py_modules=['tap_oracle'],
       install_requires=[
           'singer-python==5.0.4',
           'requests==2.12.4',
@@ -18,4 +19,5 @@ setup(name='tap-oracle',
           [console_scripts]
           tap-oracle=tap_oracle:main
       ''',
+
 )
