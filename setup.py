@@ -3,12 +3,12 @@
 from setuptools import setup
 
 setup(name='tap-oracle',
-      version='0.0.5',
+      version='0.0.6',
       description='Singer.io tap for extracting data from Oracle',
       author='Stitch',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
-      py_modules=['tap_oracle', 'tap_oracle.sync_strategies'],
+      py_modules=['tap_oracle'],
       install_requires=[
           'singer-python==5.0.4',
           'requests==2.12.4',
@@ -19,6 +19,6 @@ setup(name='tap-oracle',
           [console_scripts]
           tap-oracle=tap_oracle:main
       ''',
-      packages=['tap_oracle']
+      packages=['tap_oracle', 'tap_oracle.sync_strategies']
 
 )
