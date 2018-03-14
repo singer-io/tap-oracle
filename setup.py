@@ -19,5 +19,6 @@ setup(name='tap-oracle',
           [console_scripts]
           tap-oracle=tap_oracle:main
       ''',
+      packages=['tap_oracle']
 
 )
