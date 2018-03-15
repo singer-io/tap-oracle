@@ -177,7 +177,7 @@ def get_database_name(connection):
    rows = cur.execute("SELECT name FROM v$database").fetchall()
    return rows[0][0]
 
-def produce_column_metadata(connection, table_info, table_schema, table_name, pk_constraints, column_schemas):
+def produce_column_metadata(connection, table_info, table_schema, table_name, pk_constraints, column_schemas, cols):
    mdata = {}
 
    table_pks = pk_constraints.get(table_schema, {}).get(table_name, [])
@@ -199,7 +199,9 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
       if row_count is not None:
          metadata.write(mdata, (), 'row-count', row_count)
 
-   for c_name in column_schemas:
+   for c in cols:
+      c_name = c.column_name
+      metadata.write(mdata, ('properties', c_name), 'sql-datatype', c.data_type)
       if column_schemas[c_name].type is None:
          metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
       elif c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
@@ -246,7 +248,8 @@ def discover_columns(connection, table_info):
                                    table_schema,
                                    table_name,
                                    pk_constraints,
-                                   column_schemas)
+                                   column_schemas,
+                                   cols)
 
       entry = CatalogEntry(
          table=table_name,
