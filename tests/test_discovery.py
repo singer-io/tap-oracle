@@ -4,7 +4,10 @@ import tap_oracle
 import os
 import pdb
 from singer import get_logger
-from tests.utils import get_test_connection, ensure_test_table
+try:
+    from tests.utils import get_test_connection, ensure_test_table
+except ImportError:
+    from utils import get_test_connection, ensure_test_table
 
 LOGGER = get_logger()
 
@@ -51,15 +54,15 @@ class TestStringTableWithPK(unittest.TestCase):
                                             'is-view': False,
                                             'row-count': 0},
                                'breadcrumb': ()},
-                              {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'ID')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-byte')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-char-explicit-char')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-nchar')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-nvarchar2')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar-explicit-byte')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar-explicit-char')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-byte')},
-                              {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-char')}])
+                              {'metadata': {'inclusion': 'automatic', 'sql-datatype' : 'NUMBER'}, 'breadcrumb': ('properties', 'ID'),},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'CHAR'}, 'breadcrumb': ('properties', 'name-char-explicit-byte')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'CHAR',}, 'breadcrumb': ('properties', 'name-char-explicit-char')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'NCHAR'}, 'breadcrumb': ('properties', 'name-nchar')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'NVARCHAR2'}, 'breadcrumb': ('properties', 'name-nvarchar2')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2'}, 'breadcrumb': ('properties', 'name-varchar-explicit-byte')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2'}, 'breadcrumb': ('properties', 'name-varchar-explicit-char')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-byte')},
+                              {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2'}, 'breadcrumb': ('properties', 'name-varchar2-explicit-char')}])
 
             self.assertEqual({'properties': {'ID':                      {'type': ['integer'],
                                                                          'maximum': 99999999999999999999999999999999999999,
@@ -126,13 +129,13 @@ class TestIntegerTablePK(unittest.TestCase):
                                                          'is-view': False,
                                                          'row-count': 0},
                                             'breadcrumb': ()},
-                                           {'metadata': {'inclusion': 'automatic'}, 'breadcrumb': ('properties', 'SIZE_PK')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_*_0')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_4_0')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_int')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_integer')},
-                                           {'metadata': {'inclusion': 'available'}, 'breadcrumb': ('properties', 'size_number_smallint')}]},
+                                           {'metadata': {'inclusion': 'automatic', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'SIZE_PK')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_*_0')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_10_-1')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_4_0')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_int')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_integer')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}, 'breadcrumb': ('properties', 'size_number_smallint')}]},
 
                              stream_dict)
 
@@ -180,9 +183,9 @@ class TestDecimalPK(unittest.TestCase):
                                                          'schema-name': 'ROOT',
                                                          'is-view': False,
                                                          'row-count': 0}},
-                                           {'breadcrumb': ('properties', 'our_number'), 'metadata': {'inclusion': 'automatic'}},
-                                           {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available'}},
-                                           {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available'}}]},
+                                           {'breadcrumb': ('properties', 'our_number'),      'metadata': {'inclusion': 'automatic', 'sql-datatype': 'NUMBER'}},
+                                           {'breadcrumb': ('properties', 'our_number_10_2'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}},
+                                           {'breadcrumb': ('properties', 'our_number_38_4'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER'}}]},
                              stream_dict)
 
 
@@ -221,14 +224,10 @@ class TestDatesTablePK(unittest.TestCase):
                                              'schema-name': 'ROOT',
                                              'is-view': 0,
                                              'row-count': 0}},
-                               {'breadcrumb': ('properties', 'our_date'),
-                                'metadata': {'inclusion': 'automatic'}},
-                               {'breadcrumb': ('properties', 'our_ts'),
-                                'metadata': {'inclusion': 'available'}},
-                               {'breadcrumb': ('properties', 'our_ts_tz'),
-                                'metadata': {'inclusion': 'available'}},
-                               {'breadcrumb': ('properties', 'our_ts_tz_local'),
-                                'metadata': {'inclusion': 'available'}}]},
+                               {'breadcrumb': ('properties', 'our_date'),        'metadata': {'inclusion': 'automatic', 'sql-datatype': 'DATE'}},
+                               {'breadcrumb': ('properties', 'our_ts'),          'metadata': {'inclusion': 'available', 'sql-datatype': 'TIMESTAMP(6)'}},
+                               {'breadcrumb': ('properties', 'our_ts_tz'),       'metadata': {'inclusion': 'available', 'sql-datatype': 'TIMESTAMP(6) WITH TIME ZONE'}},
+                               {'breadcrumb': ('properties', 'our_ts_tz_local'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'TIMESTAMP(6) WITH LOCAL TIME ZONE'}}]},
 
                              stream_dict)
 
@@ -271,13 +270,13 @@ class TestFloatTablePK(unittest.TestCase):
                                                          'schema-name': 'ROOT',
                                                          'is-view': False,
                                                          'row-count': 0}},
-                                           {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available'}},
-                                           {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available'}},
-                                           {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available'}},
-                                           {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'automatic'}},
-                                           {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available'}}]},
+                                           {'breadcrumb': ('properties', 'our_binary_double'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'BINARY_DOUBLE'}},
+                                           {'breadcrumb': ('properties', 'our_binary_float'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'BINARY_FLOAT'}},
+                                           {'breadcrumb': ('properties', 'our_double_precision'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'FLOAT'}},
+                                           {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'automatic', 'sql-datatype': 'FLOAT'}},
+                                           {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'FLOAT'}}]},
                              stream_dict)
 if __name__== "__main__":
-    test1 = TestFloatTablePK()
+    test1 = TestDatesTablePK()
     test1.setUp()
     test1.test_catalog()
