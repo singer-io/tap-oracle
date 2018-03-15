@@ -203,11 +203,14 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
       c_name = c.column_name
       metadata.write(mdata, ('properties', c_name), 'sql-datatype', c.data_type)
       if column_schemas[c_name].type is None:
-         metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
+         mdata = metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
+         mdata = metadata.write(mdata, ('properties', c_name), 'selected-by-default', False)
       elif c_name in pk_constraints.get(table_schema, {}).get(table_name, []):
-         metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
+         mdata = metadata.write(mdata, ('properties', c_name), 'inclusion', 'automatic')
+         mdata = metadata.write(mdata, ('properties', c_name), 'selected-by-default', True)
       else:
-         metadata.write(mdata, ('properties', c_name), 'inclusion', 'available')
+         mdata = metadata.write(mdata, ('properties', c_name), 'inclusion', 'available')
+         mdata = metadata.write(mdata, ('properties', c_name), 'selected-by-default', True)
 
    return mdata
 

@@ -5,7 +5,11 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+try:
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+except ImportError:
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
@@ -53,10 +57,19 @@ class UnsupportedPK(unittest.TestCase):
 
             catalog = tap_oracle.do_discovery(conn)
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
-            key_properties = metadata.to_map(chicken_stream.metadata).get(()).get('table-key-properties')
+            mdata = metadata.to_map(chicken_stream.metadata)
 
-            #interval_column SHOULD BE unsupported
-            self.assertEqual([], key_properties)
+            self.assertEqual(mdata,
+                             {('properties', 'AGE'): {'inclusion': 'available',
+                                                      'selected-by-default': True,
+                                                      'sql-datatype': 'NUMBER'},
+                              (): {'is-view': False, 'row-count': 0,
+                                   'table-key-properties': [],
+                                   'schema-name': 'ROOT',
+                                   'database-name': 'ORCL'},
+                              ('properties', 'INTERVAL_COLUMN'): {'inclusion': 'unsupported',
+                                                                  'selected-by-default': False,
+                                                                  'sql-datatype': 'INTERVAL DAY(2) TO SECOND(6)'}})
 
             chicken_stream = select_all_of_stream(chicken_stream)
 
