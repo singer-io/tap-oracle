@@ -18,4 +18,4 @@ jobs:
       - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/platform.oracle:circleci
     steps:
       - checkout
-      - run: 'echo "Hello"'
+      - run: 'echo "Hello World"'
