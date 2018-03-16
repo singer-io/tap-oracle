@@ -8,13 +8,14 @@ jobs:
       - run:
           name: 'Setup virtual env'
           command: |
-            pip3 install wheel
-            python3 setup.py sdist
-            python3 setup.py bdist_wheel
-            
             apt-get -y install python3-venv
             python3 -m venv venv
+
             . venv/bin/activate
+            pip install wheel
+            python setup.py sdist
+            python setup.py bdist_wheel
+
             pip install .
             pip install pylint
             pylint tap_oracle -d missing-docstring,invalid-name,line-too-long,too-many-locals,too-few-public-methods,fixme,stop-iteration-return
