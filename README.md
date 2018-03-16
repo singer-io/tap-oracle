@@ -2,7 +2,6 @@
 
 Tap for Oracle
 
-
 you must enable supplemental logging before turning on logminer
  begin
  rdsadmin.rdsadmin_util.alter_supplemental_logging(
