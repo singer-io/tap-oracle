@@ -21,7 +21,7 @@ jobs:
             pylint tap_oracle -d missing-docstring,invalid-name,line-too-long,too-many-locals,too-few-public-methods,fixme,stop-iteration-return
   test:
     docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/platform.oracle:circleci
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:platform.oracle
     steps:
       - checkout
       - run: 'echo "Hello World"'
