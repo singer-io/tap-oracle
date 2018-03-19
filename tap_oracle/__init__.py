@@ -144,7 +144,7 @@ def produce_row_counts(conn):
    row_counts = {}
    for row in cur.execute("""
                        SELECT table_name, num_rows
-                         FROM dba_tables
+                         FROM all_tables
                         WHERE owner != 'SYS'"""):
       row_counts[row[0]] = row[1] or 0
 
