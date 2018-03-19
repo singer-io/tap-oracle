@@ -17,8 +17,8 @@ jobs:
             python setup.py bdist_wheel
 
             pip install .
-            pip install pylint
-            pylint tap_oracle -d missing-docstring,invalid-name,line-too-long,too-many-locals,too-few-public-methods,fixme,stop-iteration-return
+            pip install nose
+            make test
   test:
     docker:
       - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:platform.oracle
