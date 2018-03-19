@@ -19,9 +19,3 @@ jobs:
             pip install .
             pip install nose
             make test
-  test:
-    docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:platform.oracle
-    steps:
-      - checkout
-      - run: 'echo "Hello World"'
