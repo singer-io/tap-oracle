@@ -103,8 +103,8 @@ class FullTable(unittest.TestCase):
             nyc_tz = pytz.timezone('America/New_York')
             our_ts_tz_edt = nyc_tz.localize(datetime.datetime(1997, 3, 3, 3, 3, 3, 722184))
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
-            auckland_tz = pytz.timezone('Pacific/Auckland')
-            our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
+            california_tz = pytz.timezone('America/Los_Angeles')
+            our_ts_local  = california_tz.localize(datetime.datetime(1997, 3, 2, 21, 3, 3, 722184))
             our_float = decimal.Decimal('1234567.890123456789012345678901234567890123456789')
             our_real = our_float
             our_double_precision = our_float
