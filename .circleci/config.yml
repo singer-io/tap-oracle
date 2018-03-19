@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/platform.oracle:circleci
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:platform.oracle
     steps:
       - checkout
       - run:
