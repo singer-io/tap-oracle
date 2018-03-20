@@ -5,7 +5,12 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+
+try:
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+except ImportError:
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
@@ -104,6 +109,9 @@ class FullTable(unittest.TestCase):
             our_ts_tz_edt = nyc_tz.localize(datetime.datetime(1997, 3, 3, 3, 3, 3, 722184))
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
             california_tz = pytz.timezone('America/Los_Angeles')
+            # auckland_tz = pytz.timezone('Pacific/Auckland')
+            # our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
+
             our_ts_local  = california_tz.localize(datetime.datetime(1997, 3, 2, 21, 3, 3, 722184))
             our_float = decimal.Decimal('1234567.890123456789012345678901234567890123456789')
             our_real = our_float
