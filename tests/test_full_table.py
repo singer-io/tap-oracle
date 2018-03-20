@@ -212,7 +212,7 @@ class FullTable(unittest.TestCase):
                               'our_ts'              : '1997-02-02T02:02:02.722184+00:00',
                               'our_ts_tz_edt'       : '1997-03-03T03:03:03.722184-05:00',
                               'our_ts_tz_utc'       : '1997-03-03T03:03:03.722184+00:00',
-                              'our_ts_tz_local'     : '1997-03-03T17:00:00.000000+00:00',
+                              'our_ts_tz_local'     : '1997-03-03T18:00:00.000000+00:00',
 
                               'name-char-explicit-byte'    :'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
                               'name-char-explicit-char'    :'name-char-explicit-char I                                                                                                                                                                                                                                 ',
