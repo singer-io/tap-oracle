@@ -351,6 +351,7 @@ def do_sync(connection, catalog, default_replication_method, state):
       streams = dropwhile(lambda s: s.tap_stream_id != currently_syncing, streams)
 
    for stream in streams:
+      LOGGER.info("syncing stream %s", stream.tap_stream_id)
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
 
@@ -360,16 +361,22 @@ def do_sync(connection, catalog, default_replication_method, state):
          LOGGER.warning('There are no columns selected for stream %s, skipping it', stream.tap_stream_id)
          continue
 
-
       replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
+      if replication_method == 'LOG_BASED' and metadata.to_map(stream.metadata).get((), {}).get('is-view'):
+         LOGGER.warning('Log Miner is NOT supported for views. skipping stream %s', stream.tap_stream_id)
+         continue
+
+
       if replication_method == 'LOG_BASED':
          if get_bookmark(state, stream.tap_stream_id, 'scn'):
+            LOGGER.info("stream %s is using log_miner", stream.tap_stream_id)
             log_miner.add_automatic_properties(stream)
             send_schema_message(stream, ['scn'])
             state = log_miner.sync_table(connection, stream, state, desired_columns)
 
          else:
             #start off with full-table replication
+            LOGGER.info("stream %s is using log_miner. will use full table for first run", stream.tap_stream_id)
             end_scn = log_miner.fetch_current_scn(connection)
             send_schema_message(stream, [])
             state = full_table.sync_table(connection, stream, state, desired_columns)
@@ -378,6 +385,7 @@ def do_sync(connection, catalog, default_replication_method, state):
             state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
 
       elif replication_method == 'FULL_TABLE':
+         LOGGER.info("stream %s is using full_table", stream.tap_stream_id)
          send_schema_message(stream, [])
          state = full_table.sync_table(connection, stream, state, desired_columns)
       else:
