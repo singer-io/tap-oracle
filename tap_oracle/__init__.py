@@ -316,12 +316,24 @@ def should_sync_column(metadata, field_name):
    if metadata.get(('properties', field_name), {}).get('inclusion') == 'automatic':
       return True
 
+   if metadata.get(('properties', field_name), {}).get('selected') == False:
+      return False
+
+   if metadata.get(('properties', field_name), {}).get('selected-by-default'):
+      return True
+
    return False
 
 def send_schema_message(stream, bookmark_properties):
+   s_md = metadata.to_map(stream.metadata)
+   if s_md.get((), {}).get('is-view'):
+      key_properties = s_md.get((), {}).get('view-key-properties')
+   else:
+      key_properties = s_md.get((), {}).get('table-key-properties')
+
    schema_message = singer.SchemaMessage(stream=stream.stream,
                                          schema=stream.schema.to_dict(),
-                                         key_properties=metadata.to_map(stream.metadata).get((), {}).get('table-key-properties'),
+                                         key_properties=key_properties,
                                          bookmark_properties=bookmark_properties)
    singer.write_message(schema_message)
 
@@ -344,6 +356,10 @@ def do_sync(connection, catalog, default_replication_method, state):
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
+      if len(desired_columns) == 0:
+         LOGGER.warning('There are no columns selected for stream %s, skipping it', stream.tap_stream_id)
+         continue
+
 
       replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
       if replication_method == 'LOG_BASED':

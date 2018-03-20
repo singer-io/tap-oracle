@@ -91,6 +91,7 @@ def sync_table(connection, stream, state, desired_columns):
       singer.write_message(activate_version_message)
 
    with metrics.record_counter(None) as counter:
+      LOGGER.info("select %s", select_sql)
       for row in cur.execute(select_sql):
          record_message = row_to_singer_message(stream, row, nascent_stream_version, desired_columns, time_extracted)
          singer.write_message(record_message)
