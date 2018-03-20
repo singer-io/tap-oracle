@@ -63,7 +63,23 @@ def row_to_singer_message(stream, row, version, columns, time_extracted):
         version=version,
         time_extracted=time_extracted)
 
+def verify_supplemental_log_level(stream, connection):
+   cur = connection.cursor()
+   cur.execute("SELECT SUPPLEMENTAL_LOG_DATA_ALL FROM V$DATABASE")
+   result = cur.fetchone()[0]
+
+   LOGGER.info("supplemental log level: %s", result)
+
+   if result != 'YES':
+      raise Exception("""
+      Unable to replicate with logminer for stream({}) because supplmental_log_data is not set to 'ALL': {}.
+      Please run: ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+      """.format(stream.tap_stream_id, result))
+
+
 def sync_table(connection, stream, state, desired_columns):
+   verify_supplemental_log_level(stream, connection)
+
    stream_version = get_stream_version(stream.tap_stream_id, state)
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
