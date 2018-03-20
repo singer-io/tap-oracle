@@ -109,8 +109,8 @@ class FullTable(unittest.TestCase):
             our_ts_tz_edt = nyc_tz.localize(datetime.datetime(1997, 3, 3, 3, 3, 3, 722184))
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
             california_tz = pytz.timezone('America/Los_Angeles')
-            our_ts_local  = california_tz.localize(datetime.datetime(1997, 3, 2, 17, 3, 3, 722184))
-
+            # our_ts_local  = datetime.datetime(1997, 3, 3, 10, 0, 0, 000000, pytz.UTC)
+            our_ts_local  = california_tz.localize(datetime.datetime(1997, 3, 3, 10, 0, 0, 000000))
             our_float = decimal.Decimal('1234567.890123456789012345678901234567890123456789')
             our_real = our_float
             our_double_precision = our_float
@@ -212,7 +212,7 @@ class FullTable(unittest.TestCase):
                               'our_ts'              : '1997-02-02T02:02:02.722184+00:00',
                               'our_ts_tz_edt'       : '1997-03-03T03:03:03.722184-05:00',
                               'our_ts_tz_utc'       : '1997-03-03T03:03:03.722184+00:00',
-                              'our_ts_tz_local'     : '1997-03-03T01:03:03.722184+00:00',
+                              'our_ts_tz_local'     : '1997-03-03T17:00:00.000000+00:00',
 
                               'name-char-explicit-byte'    :'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
                               'name-char-explicit-char'    :'name-char-explicit-char I                                                                                                                                                                                                                                 ',
