@@ -1,0 +1,21 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:platform.oracle
+    steps:
+      - checkout
+      - run:
+          name: 'Setup virtual env'
+          command: |
+            apt-get -y install python3-venv
+            python3 -m venv venv
+
+            . venv/bin/activate
+            pip install wheel
+            python setup.py sdist
+            python setup.py bdist_wheel
+
+            pip install .
+            pip install nose
+            make test

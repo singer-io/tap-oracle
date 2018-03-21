@@ -5,7 +5,12 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+
+try:
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+except ImportError:
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
@@ -103,8 +108,8 @@ class FullTable(unittest.TestCase):
             nyc_tz = pytz.timezone('America/New_York')
             our_ts_tz_edt = nyc_tz.localize(datetime.datetime(1997, 3, 3, 3, 3, 3, 722184))
             our_ts_tz_utc = datetime.datetime(1997, 3, 3, 3, 3, 3, 722184, pytz.UTC)
-            auckland_tz = pytz.timezone('Pacific/Auckland')
-            our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
+            california_tz = pytz.timezone('America/Los_Angeles')
+            our_ts_local  = california_tz.localize(datetime.datetime(2018, 4, 1, 10, 0, 0, 000000))
             our_float = decimal.Decimal('1234567.890123456789012345678901234567890123456789')
             our_real = our_float
             our_double_precision = our_float
@@ -206,7 +211,7 @@ class FullTable(unittest.TestCase):
                               'our_ts'              : '1997-02-02T02:02:02.722184+00:00',
                               'our_ts_tz_edt'       : '1997-03-03T03:03:03.722184-05:00',
                               'our_ts_tz_utc'       : '1997-03-03T03:03:03.722184+00:00',
-                              'our_ts_tz_local'     : '1997-03-03T01:03:03.722184+00:00',
+                              'our_ts_tz_local'     : '2018-04-01T17:00:00.000000+00:00',
 
                               'name-char-explicit-byte'    :'name-char-explicit-byte I                                                                                                                                                                                                                                 ',
                               'name-char-explicit-char'    :'name-char-explicit-char I                                                                                                                                                                                                                                 ',
