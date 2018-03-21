@@ -316,12 +316,24 @@ def should_sync_column(metadata, field_name):
    if metadata.get(('properties', field_name), {}).get('inclusion') == 'automatic':
       return True
 
+   if metadata.get(('properties', field_name), {}).get('selected') == False:
+      return False
+
+   if metadata.get(('properties', field_name), {}).get('selected-by-default'):
+      return True
+
    return False
 
 def send_schema_message(stream, bookmark_properties):
+   s_md = metadata.to_map(stream.metadata)
+   if s_md.get((), {}).get('is-view'):
+      key_properties = s_md.get((), {}).get('view-key-properties')
+   else:
+      key_properties = s_md.get((), {}).get('table-key-properties')
+
    schema_message = singer.SchemaMessage(stream=stream.stream,
                                          schema=stream.schema.to_dict(),
-                                         key_properties=metadata.to_map(stream.metadata).get((), {}).get('table-key-properties'),
+                                         key_properties=key_properties,
                                          bookmark_properties=bookmark_properties)
    singer.write_message(schema_message)
 
@@ -339,21 +351,32 @@ def do_sync(connection, catalog, default_replication_method, state):
       streams = dropwhile(lambda s: s.tap_stream_id != currently_syncing, streams)
 
    for stream in streams:
+      LOGGER.info("syncing stream %s", stream.tap_stream_id)
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
       stream_metadata = metadata.to_map(stream.metadata)
 
       desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
       desired_columns.sort()
+      if len(desired_columns) == 0:
+         LOGGER.warning('There are no columns selected for stream %s, skipping it', stream.tap_stream_id)
+         continue
 
       replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
+      if replication_method == 'LOG_BASED' and metadata.to_map(stream.metadata).get((), {}).get('is-view'):
+         LOGGER.warning('Log Miner is NOT supported for views. skipping stream %s', stream.tap_stream_id)
+         continue
+
+
       if replication_method == 'LOG_BASED':
          if get_bookmark(state, stream.tap_stream_id, 'scn'):
+            LOGGER.info("stream %s is using log_miner", stream.tap_stream_id)
             log_miner.add_automatic_properties(stream)
             send_schema_message(stream, ['scn'])
             state = log_miner.sync_table(connection, stream, state, desired_columns)
 
          else:
             #start off with full-table replication
+            LOGGER.info("stream %s is using log_miner. will use full table for first run", stream.tap_stream_id)
             end_scn = log_miner.fetch_current_scn(connection)
             send_schema_message(stream, [])
             state = full_table.sync_table(connection, stream, state, desired_columns)
@@ -362,6 +385,7 @@ def do_sync(connection, catalog, default_replication_method, state):
             state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
 
       elif replication_method == 'FULL_TABLE':
+         LOGGER.info("stream %s is using full_table", stream.tap_stream_id)
          send_schema_message(stream, [])
          state = full_table.sync_table(connection, stream, state, desired_columns)
       else:
