@@ -139,28 +139,48 @@ def schema_for_column(c, pks_for_table):
 
    return Schema(None)
 
-def produce_row_counts(conn):
+def filter_schemas_sql_clause(sql, binds_sql, owner_schema=None):
+   if binds_sql:
+      if owner_schema:
+         return sql + """ AND {}.owner IN ({})""".format(owner_schema, ",".join(binds_sql))
+      else:
+         return sql + """ AND owner IN ({})""".format(",".join(binds_sql))
+
+   else:
+      return sql
+
+def produce_row_counts(conn, filter_schemas):
+   LOGGER.info("fetching row counts")
    cur = conn.cursor()
    row_counts = {}
-   for row in cur.execute("""
-                       SELECT table_name, num_rows
-                         FROM all_tables
-                        WHERE owner != 'SYS'"""):
+
+   binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
+   sql = filter_schemas_sql_clause("""
+   SELECT table_name, num_rows
+   FROM all_tables
+   WHERE owner != 'SYS'""", binds_sql)
+
+   for row in cur.execute(sql, filter_schemas):
       row_counts[row[0]] = row[1] or 0
 
    return row_counts
 
-def produce_pk_constraints(conn):
+def produce_pk_constraints(conn, filter_schemas):
+   LOGGER.info("fetching pk constraints")
    cur = conn.cursor()
    pk_constraints = {}
-   for schema, table_name, column_name in cur.execute("""
-                      SELECT cols.owner, cols.table_name, cols.column_name
-                       FROM all_constraints cons, all_cons_columns cols
-                      WHERE cons.constraint_type = 'P'
-                       AND cons.constraint_name = cols.constraint_name
-                       AND cons.owner = cols.owner
-                       AND cols.owner != 'SYS'"""):
 
+   binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
+   sql = filter_schemas_sql_clause("""
+   SELECT cols.owner, cols.table_name, cols.column_name
+   FROM all_constraints cons, all_cons_columns cols
+   WHERE cons.constraint_type = 'P'
+   AND cons.constraint_name = cols.constraint_name
+   AND cons.owner = cols.owner
+   AND cols.owner != 'SYS'
+   """, binds_sql, "cols")
+
+   for schema, table_name, column_name in cur.execute(sql, filter_schemas):
      if pk_constraints.get(schema) is None:
         pk_constraints[schema] = {}
 
@@ -214,18 +234,34 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
 
    return mdata
 
-def discover_columns(connection, table_info):
+def discover_columns(connection, table_info, filter_schemas):
    cur = connection.cursor()
-   cur.execute("""
-                SELECT OWNER,
-                       TABLE_NAME, COLUMN_NAME,
-                       DATA_TYPE, DATA_LENGTH,
-                       CHAR_LENGTH, CHAR_USED,
-                       DATA_PRECISION, DATA_SCALE
-                       from all_tab_columns
-                 WHERE OWNER != 'SYS'
-                 ORDER BY owner, table_name, column_name
-              """)
+   binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
+   if binds_sql:
+      sql = """
+      SELECT OWNER,
+             TABLE_NAME, COLUMN_NAME,
+             DATA_TYPE, DATA_LENGTH,
+             CHAR_LENGTH, CHAR_USED,
+             DATA_PRECISION, DATA_SCALE
+        FROM all_tab_columns
+       WHERE OWNER != 'SYS' AND owner IN ({})
+       ORDER BY owner, table_name, column_name
+      """.format(",".join(binds_sql))
+   else:
+      sql = """
+      SELECT OWNER,
+             TABLE_NAME, COLUMN_NAME,
+             DATA_TYPE, DATA_LENGTH,
+             CHAR_LENGTH, CHAR_USED,
+             DATA_PRECISION, DATA_SCALE
+        FROM all_tab_columns
+       WHERE OWNER != 'SYS'
+       ORDER BY owner, table_name, column_name
+      """
+
+   LOGGER.info("fetching column info")
+   cur.execute(sql, filter_schemas)
 
    columns = []
    counter = 0
@@ -236,7 +272,7 @@ def discover_columns(connection, table_info):
       rec = cur.fetchone()
 
 
-   pk_constraints = produce_pk_constraints(connection)
+   pk_constraints = produce_pk_constraints(connection, filter_schemas)
    entries = []
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
       cols = list(cols)
@@ -268,15 +304,23 @@ def discover_columns(connection, table_info):
 def dump_catalog(catalog):
    catalog.dump()
 
-def do_discovery(connection):
+def do_discovery(connection, filter_schemas):
+   LOGGER.info("starting discovery")
    cur = connection.cursor()
-   row_counts = produce_row_counts(connection)
+
+   row_counts = produce_row_counts(connection, filter_schemas)
    table_info = {}
 
-   for row in cur.execute("""
-                        SELECT owner, table_name
-                         FROM all_tables
-                        WHERE owner != 'SYS'"""):
+   binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
+
+
+   sql  = filter_schemas_sql_clause("""
+   SELECT owner, table_name
+   FROM all_tables
+   WHERE owner != 'SYS'""", binds_sql)
+
+   LOGGER.info("fetching tables")
+   for row in cur.execute(sql, filter_schemas):
       schema = row[0]
       table = row[1]
 
@@ -289,10 +333,14 @@ def do_discovery(connection):
          'is_view': is_view
       }
 
-   for row in cur.execute("""
-                         SELECT owner, view_name
-                          FROM sys.all_views
-                         WHERE owner != 'SYS'"""):
+
+   sql = filter_schemas_sql_clause("""
+   SELECT owner, view_name
+   FROM sys.all_views
+   WHERE owner != 'SYS'""", binds_sql)
+
+   LOGGER.info("fetching views")
+   for row in cur.execute(sql, filter_schemas):
      view_name = row[1]
      schema = row[0]
      if schema not in table_info:
@@ -302,7 +350,7 @@ def do_discovery(connection):
         'is_view': True
      }
 
-   catalog = discover_columns(connection, table_info)
+   catalog = discover_columns(connection, table_info, filter_schemas)
    dump_catalog(catalog)
    return catalog
 
@@ -394,18 +442,17 @@ def do_sync(connection, catalog, default_replication_method, state):
       state = singer.set_currently_syncing(state, None)
       singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
-
 def main_impl():
-    args = utils.parse_args(REQUIRED_CONFIG_KEYS)
-    connection = open_connection(args.config)
+   args = utils.parse_args(REQUIRED_CONFIG_KEYS)
+   connection = open_connection(args.config)
 
-    if args.discover:
-        do_discovery(connection)
-    elif args.catalog:
-       state = args.state
-       do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
-    else:
-        LOGGER.info("No properties were selected")
+   if args.discover:
+      do_discovery(connection, args.config.get('filter_schemas', []))
+   elif args.catalog:
+      state = args.state
+      do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
+   else:
+      LOGGER.info("No properties were selected")
 
 def main():
     try:

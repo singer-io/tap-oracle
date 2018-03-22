@@ -36,7 +36,7 @@ class TestStringTableWithPK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -97,7 +97,7 @@ class TestIntegerTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -153,7 +153,7 @@ class TestDecimalPK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -202,7 +202,7 @@ class TestDatesTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -246,7 +246,7 @@ class TestFloatTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -276,7 +276,37 @@ class TestFloatTablePK(unittest.TestCase):
                                            {'breadcrumb': ('properties', 'our_float'), 'metadata': {'inclusion': 'automatic', 'sql-datatype': 'FLOAT', 'selected-by-default': True}},
                                            {'breadcrumb': ('properties', 'our_real'), 'metadata': {'inclusion': 'available', 'sql-datatype': 'FLOAT', 'selected-by-default': True}}]},
                              stream_dict)
+
+
+class TestFilterSchemas(unittest.TestCase):
+    maxDiff = None
+
+    def setUp(self):
+        table_spec = {"columns": [{"name" :  "size_pk   ",            "type" : "number(4,0)", "primary_key" : True, "identity" : True},
+                                  {"name" : '"size_number_4_0"',      "type" : "number(4,0)"},
+                                  {"name" : '"size_number_*_0"',      "type" : "number(*,0)"},
+                                  {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
+                                  {"name" : '"size_number_integer"',  "type" : "integer"},
+                                  {"name" : '"size_number_int"',      "type" : "int"},
+                                  {"name" : '"size_number_smallint"', "type" : "smallint"}],
+                      "name" : "CHICKEN"}
+        ensure_test_table(table_spec)
+
+    def test_catalog(self):
+        with get_test_connection() as conn:
+            catalog = tap_oracle.do_discovery(conn, ['ROOT'])
+
+            discovered_streams = {}
+            for s in catalog.streams:
+                schema_name = [md['metadata']['schema-name'] for md in s.metadata if md['breadcrumb'] == () and md['metadata']][0]
+                if discovered_streams.get(schema_name) is None:
+                    discovered_streams[schema_name] = [s.tap_stream_id]
+                else:
+                    discovered_streams[schema_name].append(s.tap_stream_id)
+
+            self.assertEqual(list(discovered_streams.keys()),  ['ROOT'])
+
 if __name__== "__main__":
-    test1 = TestDatesTablePK()
+    test1 = TestFilterSchemas()
     test1.setUp()
     test1.test_catalog()

@@ -5,8 +5,12 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
 import tap_oracle.sync_strategies.log_miner as log_miner
+try:
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+except ImportError:
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+
 
 LOGGER = get_logger()
 
@@ -68,7 +72,7 @@ class MineStrings(unittest.TestCase):
 
         with get_test_connection() as conn:
             conn.autocommit = True
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 

@@ -67,7 +67,7 @@ class CurrentlySyncing(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
 
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
 
             cow_stream = [s for s in catalog.streams if s.table == 'COW'][0]
             cow_stream = select_all_of_stream(cow_stream)
