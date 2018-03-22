@@ -32,18 +32,19 @@ class TestStringTableWithPK(unittest.TestCase):
                                  {"name" : '"name-varchar2-explicit-byte"',  "type": "varchar2(250 byte)"},
                                  {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"}],
                       "name" : "CHICKEN"}
-       ensure_test_table(table_spec)
+
+       self.unique_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            chicken_streams = [s for s in catalog.streams if s.table == self.unique_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
-            self.assertEqual('CHICKEN', stream_dict.get('table_name'))
-            self.assertEqual('CHICKEN', stream_dict.get('stream'))
-            self.assertEqual('ROOT-CHICKEN', stream_dict.get('tap_stream_id'))
+            self.assertEqual(self.unique_table_name, stream_dict.get('table_name'))
+            self.assertEqual(self.unique_table_name, stream_dict.get('stream'))
+            self.assertEqual('ROOT-' + self.unique_table_name, stream_dict.get('tap_stream_id'))
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
@@ -93,12 +94,12 @@ class TestIntegerTablePK(unittest.TestCase):
                                  {"name" : '"size_number_int"',      "type" : "int"},
                                  {"name" : '"size_number_smallint"', "type" : "smallint"}],
                      "name" : "CHICKEN"}
-       ensure_test_table(table_spec)
+       self.unique_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            chicken_streams = [s for s in catalog.streams if s.table == self.unique_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
@@ -120,9 +121,9 @@ class TestIntegerTablePK(unittest.TestCase):
                                                         'SIZE_PK':               {'maximum': 9999, 'minimum': -9999,
                                                                                   'type': ['integer']}},
                                          'type': 'object'},
-                              'stream': 'CHICKEN',
-                              'table_name': 'CHICKEN',
-                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'stream': self.unique_table_name,
+                              'table_name': self.unique_table_name,
+                              'tap_stream_id': 'ROOT-' + self.unique_table_name,
                               'metadata': [{'metadata': {'table-key-properties': ['SIZE_PK'],
                                                          'database-name': os.getenv('TAP_ORACLE_SID'),
                                                          'schema-name': 'ROOT',
@@ -149,12 +150,12 @@ class TestDecimalPK(unittest.TestCase):
                                  {"name" : '"our_number_10_2"',           "type" : "number(10,2)"},
                                  {"name" : '"our_number_38_4"',           "type" : "number(38,4)"}],
                      "name" : "CHICKEN"}
-       ensure_test_table(table_spec)
+       self.unique_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            chicken_streams = [s for s in catalog.streams if s.table == self.unique_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
@@ -174,9 +175,9 @@ class TestDecimalPK(unittest.TestCase):
                                                                              'multipleOf': 0.0001,
                                                                              'type': ['null', 'number']}},
                                          'type': 'object'},
-                              'stream': 'CHICKEN',
-                              'table_name': 'CHICKEN',
-                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'stream': self.unique_table_name,
+                              'table_name': self.unique_table_name,
+                              'tap_stream_id': 'ROOT-' + self.unique_table_name,
                               'metadata': [{'breadcrumb': (),
                                             'metadata': {'table-key-properties': ['our_number'],
                                                          'database-name': os.getenv('TAP_ORACLE_SID'),
@@ -198,12 +199,12 @@ class TestDatesTablePK(unittest.TestCase):
                                  {"name" : '"our_ts_tz"',                  "type" : "TIMESTAMP WITH TIME ZONE"},
                                  {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}],
                      "name" : "CHICKEN"}
-       ensure_test_table(table_spec)
+       self.chicken_stream_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            chicken_streams = [s for s in catalog.streams if s.table == self.chicken_stream_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
@@ -214,9 +215,9 @@ class TestDatesTablePK(unittest.TestCase):
                                                         'our_ts_tz':              {'type': ['null', 'string'], 'format' : 'date-time'},
                                                         'our_ts_tz_local':        {'type': ['null', 'string'], 'format' : 'date-time'}},
                                          'type': 'object'},
-                              'stream': 'CHICKEN',
-                              'table_name': 'CHICKEN',
-                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'stream': self.chicken_stream_name,
+                              'table_name': self.chicken_stream_name,
+                              'tap_stream_id': 'ROOT-' + self.chicken_stream_name,
                               'metadata':
                               [{'breadcrumb': (),
                                 'metadata': {'table-key-properties': ['our_date'],
@@ -242,12 +243,12 @@ class TestFloatTablePK(unittest.TestCase):
                                  {"name" : '"our_binary_float"',          "type" : "binary_float"},
                                  {"name" : '"our_binary_double"',         "type" : "binary_double"}],
                      "name" : "CHICKEN"}
-       ensure_test_table(table_spec)
+       self.chicken_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
+            chicken_streams = [s for s in catalog.streams if s.table == self.unique_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
@@ -261,9 +262,9 @@ class TestFloatTablePK(unittest.TestCase):
                                                         'our_binary_float':        {'type': ['null', 'number']},
                                                         'our_binary_double':       {'type': ['null', 'number']}},
                                          'type': 'object'},
-                              'stream': 'CHICKEN',
-                              'table_name': 'CHICKEN',
-                              'tap_stream_id': 'ROOT-CHICKEN',
+                              'stream': self.chicken_table_name,
+                              'table_name': self.chicken_table_name,
+                              'tap_stream_id': 'ROOT-' + self.chicken_table_name,
                               'metadata': [{'breadcrumb': (),
                                             'metadata': {'table-key-properties': ["our_float"],
                                                          'database-name': os.getenv('TAP_ORACLE_SID'),
@@ -290,7 +291,8 @@ class TestFilterSchemas(unittest.TestCase):
                                   {"name" : '"size_number_int"',      "type" : "int"},
                                   {"name" : '"size_number_smallint"', "type" : "smallint"}],
                       "name" : "CHICKEN"}
-        ensure_test_table(table_spec)
+
+        self.unique_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -307,6 +309,6 @@ class TestFilterSchemas(unittest.TestCase):
             self.assertEqual(list(discovered_streams.keys()),  ['ROOT'])
 
 if __name__== "__main__":
-    test1 = TestFilterSchemas()
+    test1 = TestStringTableWithPK()
     test1.setUp()
     test1.test_catalog()

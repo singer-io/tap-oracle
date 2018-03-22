@@ -39,12 +39,15 @@ def build_col_sql( col):
         col_sql += " GENERATED ALWAYS as IDENTITY(START with 1 INCREMENT by 1)"
     return col_sql
 
-def build_table(table):
-    create_sql = "CREATE TABLE {}\n".format(table['name'])
+def build_unique_table_name(table):
+    return table['name'] + '_' + str(int(datetime.datetime.today().timestamp()))
+
+def build_table(table_name, table):
+    create_sql = "CREATE TABLE {}\n".format(table_name)
     col_sql = map(build_col_sql, table['columns'])
     pks = [c['name'] for c in table['columns'] if c.get('primary_key')]
     if len(pks) != 0:
-        pk_sql = ",\n CONSTRAINT {}_pk  PRIMARY KEY({})".format(table['name'], " ,".join(pks))
+        pk_sql = ",\n CONSTRAINT {}_pk  PRIMARY KEY({})".format(table_name, " ,".join(pks))
     else:
        pk_sql = ""
 
@@ -54,7 +57,9 @@ def build_table(table):
 
 @nottest
 def ensure_test_table(table_spec):
-    sql = build_table(table_spec)
+    unique_table_name = build_unique_table_name(table_spec)
+
+    sql = build_table(unique_table_name, table_spec)
 
     with get_test_connection() as conn:
         cur = conn.cursor()
@@ -64,6 +69,7 @@ def ensure_test_table(table_spec):
 
         print(sql)
         cur.execute(sql)
+    return unique_table_name
 
 def unselect_column(our_stream, col):
     md = metadata.to_map(our_stream.metadata)
