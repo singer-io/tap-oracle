@@ -139,15 +139,25 @@ def schema_for_column(c, pks_for_table):
 
    return Schema(None)
 
+def filter_schemas_sql_clause(sql, binds_sql, owner_schema=None):
+   if binds_sql:
+      if owner_schema:
+         return sql + """ AND {}.owner IN ({})""".format(owner_schema, ",".join(binds_sql))
+      else:
+         return sql + """ AND owner IN ({})""".format(",".join(binds_sql))
+
+   else:
+      return sql
+
 def produce_row_counts(conn, filter_schemas):
    cur = conn.cursor()
    row_counts = {}
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
-   sql = """
+   sql = filter_schemas_sql_clause("""
    SELECT table_name, num_rows
    FROM all_tables
-   WHERE owner != 'SYS' AND owner IN ({})""".format(",".join(binds_sql))
+   WHERE owner != 'SYS'""", binds_sql)
 
    for row in cur.execute(sql, filter_schemas):
       row_counts[row[0]] = row[1] or 0
@@ -159,14 +169,14 @@ def produce_pk_constraints(conn, filter_schemas):
    pk_constraints = {}
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
-   sql = """
+   sql = filter_schemas_sql_clause("""
    SELECT cols.owner, cols.table_name, cols.column_name
    FROM all_constraints cons, all_cons_columns cols
    WHERE cons.constraint_type = 'P'
    AND cons.constraint_name = cols.constraint_name
    AND cons.owner = cols.owner
    AND cols.owner != 'SYS'
-   AND cols.owner in ({})""".format(",".join(binds_sql))
+   """, binds_sql, "cols")
 
    for schema, table_name, column_name in cur.execute(sql, filter_schemas):
      if pk_constraints.get(schema) is None:
@@ -225,16 +235,28 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
 def discover_columns(connection, table_info, filter_schemas):
    cur = connection.cursor()
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
-   sql = """
-    SELECT OWNER,
-           TABLE_NAME, COLUMN_NAME,
-           DATA_TYPE, DATA_LENGTH,
-           CHAR_LENGTH, CHAR_USED,
-           DATA_PRECISION, DATA_SCALE
-     FROM all_tab_columns
-    WHERE OWNER != 'SYS' AND owner IN ({})
-    ORDER BY owner, table_name, column_name
-""".format(",".join(binds_sql))
+   if binds_sql:
+      sql = """
+      SELECT OWNER,
+             TABLE_NAME, COLUMN_NAME,
+             DATA_TYPE, DATA_LENGTH,
+             CHAR_LENGTH, CHAR_USED,
+             DATA_PRECISION, DATA_SCALE
+        FROM all_tab_columns
+       WHERE OWNER != 'SYS' AND owner IN ({})
+       ORDER BY owner, table_name, column_name
+      """.format(",".join(binds_sql))
+   else:
+      sql = """
+      SELECT OWNER,
+             TABLE_NAME, COLUMN_NAME,
+             DATA_TYPE, DATA_LENGTH,
+             CHAR_LENGTH, CHAR_USED,
+             DATA_PRECISION, DATA_SCALE
+        FROM all_tab_columns
+       WHERE OWNER != 'SYS'
+       ORDER BY owner, table_name, column_name
+      """
 
    cur.execute(sql, filter_schemas)
 
@@ -287,11 +309,10 @@ def do_discovery(connection, filter_schemas):
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
 
-   sql  = """
+   sql  = filter_schemas_sql_clause("""
    SELECT owner, table_name
    FROM all_tables
-   WHERE owner != 'SYS' AND owner IN ({})""".format(",".join(binds_sql))
-
+   WHERE owner != 'SYS'""", binds_sql)
 
    for row in cur.execute(sql, filter_schemas):
       schema = row[0]
@@ -307,10 +328,10 @@ def do_discovery(connection, filter_schemas):
       }
 
 
-   sql = """
+   sql = filter_schemas_sql_clause("""
    SELECT owner, view_name
    FROM sys.all_views
-   WHERE owner != 'SYS' AND owner IN ({})""".format(",".join(binds_sql))
+   WHERE owner != 'SYS'""", binds_sql)
 
    for row in cur.execute(sql, filter_schemas):
      view_name = row[1]
