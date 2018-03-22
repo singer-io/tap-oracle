@@ -150,6 +150,7 @@ def filter_schemas_sql_clause(sql, binds_sql, owner_schema=None):
       return sql
 
 def produce_row_counts(conn, filter_schemas):
+   LOGGER.info("fetching row counts")
    cur = conn.cursor()
    row_counts = {}
 
@@ -165,6 +166,7 @@ def produce_row_counts(conn, filter_schemas):
    return row_counts
 
 def produce_pk_constraints(conn, filter_schemas):
+   LOGGER.info("fetching pk constraints")
    cur = conn.cursor()
    pk_constraints = {}
 
@@ -258,6 +260,7 @@ def discover_columns(connection, table_info, filter_schemas):
        ORDER BY owner, table_name, column_name
       """
 
+   LOGGER.info("fetching column info")
    cur.execute(sql, filter_schemas)
 
    columns = []
@@ -302,6 +305,7 @@ def dump_catalog(catalog):
    catalog.dump()
 
 def do_discovery(connection, filter_schemas):
+   LOGGER.info("starting discovery")
    cur = connection.cursor()
 
    row_counts = produce_row_counts(connection, filter_schemas)
@@ -309,11 +313,13 @@ def do_discovery(connection, filter_schemas):
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
 
+
    sql  = filter_schemas_sql_clause("""
    SELECT owner, table_name
    FROM all_tables
    WHERE owner != 'SYS'""", binds_sql)
 
+   LOGGER.info("fetching tables")
    for row in cur.execute(sql, filter_schemas):
       schema = row[0]
       table = row[1]
@@ -333,6 +339,7 @@ def do_discovery(connection, filter_schemas):
    FROM sys.all_views
    WHERE owner != 'SYS'""", binds_sql)
 
+   LOGGER.info("fetching views")
    for row in cur.execute(sql, filter_schemas):
      view_name = row[1]
      schema = row[0]
