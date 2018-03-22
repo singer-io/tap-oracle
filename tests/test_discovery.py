@@ -248,7 +248,7 @@ class TestFloatTablePK(unittest.TestCase):
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == self.unique_table_name]
+            chicken_streams = [s for s in catalog.streams if s.table == self.chicken_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
