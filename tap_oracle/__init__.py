@@ -319,7 +319,7 @@ def do_discovery(connection, filter_schemas):
    FROM all_tables
    WHERE owner != 'SYS'""", binds_sql)
 
-   LOGGER.info("fetching tables")
+   LOGGER.info("fetching tables: %s %s", sql, filter_schemas)
    for row in cur.execute(sql, filter_schemas):
       schema = row[0]
       table = row[1]
@@ -447,7 +447,12 @@ def main_impl():
    connection = open_connection(args.config)
 
    if args.discover:
-      do_discovery(connection, args.config.get('filter_schemas', []))
+      filter_schemas_prop = args.config.get('filter_schemas')
+      filter_schemas = []
+      if args.config.get('filter_schemas'):
+         filter_schemas = args.config.get('filter_schemas').split(',')
+      do_discovery(connection, filter_schemas)
+
    elif args.catalog:
       state = args.state
       do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
