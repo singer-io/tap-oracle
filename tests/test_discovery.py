@@ -36,7 +36,7 @@ class TestStringTableWithPK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -97,7 +97,7 @@ class TestIntegerTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -153,7 +153,7 @@ class TestDecimalPK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -202,7 +202,7 @@ class TestDatesTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
@@ -246,7 +246,7 @@ class TestFloatTablePK(unittest.TestCase):
 
     def test_catalog(self):
         with get_test_connection() as conn:
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_streams = [s for s in catalog.streams if s.table == 'CHICKEN']
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()

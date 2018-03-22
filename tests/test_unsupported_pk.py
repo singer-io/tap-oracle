@@ -55,7 +55,7 @@ class UnsupportedPK(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
 
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             mdata = metadata.to_map(chicken_stream.metadata)
 

@@ -88,7 +88,7 @@ class FullTable(unittest.TestCase):
             conn.autocommit = True
 
 
-            catalog = tap_oracle.do_discovery(conn)
+            catalog = tap_oracle.do_discovery(conn, [])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
