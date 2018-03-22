@@ -440,7 +440,7 @@ def main_impl():
    connection = open_connection(args.config)
 
    if args.discover:
-      do_discovery(connection, args.config.get('filter_schemas'))
+      do_discovery(connection, args.config.get('filter_schemas', []))
    elif args.catalog:
       state = args.state
       do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
