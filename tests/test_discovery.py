@@ -330,10 +330,8 @@ class TestFilterSchemas(unittest.TestCase):
 
             self.assertEqual(list(discovered_streams.keys()),  ['ROOT'])
 
-    def tearDown(self):
-        destroy_test_table(self.chicken_table_name)
-
 if __name__== "__main__":
-    test1 = TestStringTableWithPK()
+    test1 = TestFilterSchemas()
     test1.setUp()
     test1.test_catalog()
+    test1.tearDown()
