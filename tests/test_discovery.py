@@ -35,6 +35,9 @@ class TestStringTableWithPK(unittest.TestCase):
 
        self.chicken_table_name = ensure_test_table(table_spec)
 
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
@@ -96,6 +99,9 @@ class TestIntegerTablePK(unittest.TestCase):
                      "name" : "CHICKEN"}
        self.chicken_table_name = ensure_test_table(table_spec)
 
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
@@ -152,6 +158,10 @@ class TestDecimalPK(unittest.TestCase):
                      "name" : "CHICKEN"}
        self.chicken_table_name = ensure_test_table(table_spec)
 
+
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+       
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
@@ -201,6 +211,10 @@ class TestDatesTablePK(unittest.TestCase):
                      "name" : "CHICKEN"}
        self.chicken_stream_name = ensure_test_table(table_spec)
 
+
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+       
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
@@ -245,6 +259,10 @@ class TestFloatTablePK(unittest.TestCase):
                      "name" : "CHICKEN"}
        self.chicken_table_name = ensure_test_table(table_spec)
 
+
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+       
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
@@ -294,6 +312,9 @@ class TestFilterSchemas(unittest.TestCase):
 
         self.chicken_table_name = ensure_test_table(table_spec)
 
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
+        
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, ['ROOT'])

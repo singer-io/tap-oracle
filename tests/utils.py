@@ -79,9 +79,6 @@ def destroy_test_table(table_name):
         if len(old_table) != 0:
             cur.execute("DROP TABLE {}".format(table_name))
 
-        print(sql)
-        cur.execute(sql)
-
 def unselect_column(our_stream, col):
     md = metadata.to_map(our_stream.metadata)
     md.get(('properties', col))['selected'] = False
