@@ -11,23 +11,22 @@ import math
 import pytz
 import strict_rfc3339
 import copy
+import re
 
 try:
-    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column, destroy_test_table
 except ImportError:
-    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
-
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column, destroy_test_table
 
 LOGGER = get_logger()
 
 CAUGHT_MESSAGES = []
 
 def singer_write_message_no_cow(message):
-    if isinstance(message, singer.RecordMessage) and message.stream != 'CHICKEN':
+    if isinstance(message, singer.RecordMessage) and re.match("COW", message.stream):
         raise Exception("simulated exception")
     else:
         CAUGHT_MESSAGES.append(message)
-
 
 def singer_write_message_ok(message):
     CAUGHT_MESSAGES.append(message)
@@ -54,12 +53,18 @@ class CurrentlySyncing(unittest.TestCase):
                                         {"name" : 'colour', "type": "varchar2(250)"}],
                           "name" : "CHICKEN"}
             self.chicken_table_name = ensure_test_table(table_spec_1)
+            LOGGER.info("Chicken table name %s", self.chicken_table_name)
 
             table_spec_2 = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
                                         {"name" : 'name', "type": "varchar2(250)"},
                                         {"name" : 'colour', "type": "varchar2(250)"}],
                             "name" : "COW"}
             self.cow_table_name = ensure_test_table(table_spec_2)
+            LOGGER.info("Cow table name: %s", self.cow_table_name)
+
+    def tearDown(self):
+       destroy_test_table(self.cow_table_name) 
+       destroy_test_table(self.chicken_table_name) 
 
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow
