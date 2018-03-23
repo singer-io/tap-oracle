@@ -72,6 +72,7 @@ def ensure_test_table(table_spec):
     return unique_table_name
 
 
+@nottest
 def destroy_test_table(table_name):
     LOGGER.info("Drop table: %s", table_name)
     with get_test_connection() as conn:
