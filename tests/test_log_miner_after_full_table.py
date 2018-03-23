@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, insert_record, unselect_column
+from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, insert_record, unselect_column, destroy_test_table
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
@@ -80,6 +80,9 @@ class FullTable(unittest.TestCase):
             ],
                           "name" : "CHICKEN"}
             self.chicken_table_name = ensure_test_table(table_spec)
+
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
 
     def test_catalog(self):
         singer.write_message = singer_write_message

@@ -52,6 +52,9 @@ class MineDecimals(unittest.TestCase):
 
         self.timestamped_table_name = ensure_test_table(table_spec)
 
+        
+    def tearDown(self):
+        destroy_test_table(self.timestamped_table_name)
 
     def update_add_5(self, v):
         if v is not None:

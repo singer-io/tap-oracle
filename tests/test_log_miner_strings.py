@@ -7,9 +7,9 @@ import singer
 from singer import get_logger, metadata, write_bookmark
 import tap_oracle.sync_strategies.log_miner as log_miner
 try:
-    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, destroy_test_table
 except ImportError:
-    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+    from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, destroy_test_table
 
 
 LOGGER = get_logger()
@@ -64,6 +64,8 @@ class MineStrings(unittest.TestCase):
 
         self.timestamped_table_name = ensure_test_table(table_spec)
 
+    def tearDown(self):
+        destroy_test_table(self.timestamped_table_name)
 
     def test_catalog(self):
 
