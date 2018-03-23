@@ -73,7 +73,7 @@ def ensure_test_table(table_spec):
 
 
 def destroy_test_table(table_name):
-    print("Drop table: " + table_name)
+    LOGGER.info("Drop table: %s", table_name)
     with get_test_connection() as conn:
         cur = conn.cursor()
         old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_name)).fetchall()

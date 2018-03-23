@@ -209,7 +209,7 @@ class TestDatesTablePK(unittest.TestCase):
                                  {"name" : '"our_ts_tz"',                  "type" : "TIMESTAMP WITH TIME ZONE"},
                                  {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}],
                      "name" : "CHICKEN"}
-       self.chicken_stream_name = ensure_test_table(table_spec)
+       self.chicken_table_name = ensure_test_table(table_spec)
 
 
     def tearDown(self):
@@ -218,7 +218,7 @@ class TestDatesTablePK(unittest.TestCase):
     def test_catalog(self):
         with get_test_connection() as conn:
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_streams = [s for s in catalog.streams if s.table == self.chicken_stream_name]
+            chicken_streams = [s for s in catalog.streams if s.table == self.chicken_table_name]
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
 
@@ -229,9 +229,9 @@ class TestDatesTablePK(unittest.TestCase):
                                                         'our_ts_tz':              {'type': ['null', 'string'], 'format' : 'date-time'},
                                                         'our_ts_tz_local':        {'type': ['null', 'string'], 'format' : 'date-time'}},
                                          'type': 'object'},
-                              'stream': self.chicken_stream_name,
-                              'table_name': self.chicken_stream_name,
-                              'tap_stream_id': 'ROOT-' + self.chicken_stream_name,
+                              'stream': self.chicken_table_name,
+                              'table_name': self.chicken_table_name,
+                              'tap_stream_id': 'ROOT-' + self.chicken_table_name,
                               'metadata':
                               [{'breadcrumb': (),
                                 'metadata': {'table-key-properties': ['our_date'],
@@ -313,6 +313,7 @@ class TestFilterSchemas(unittest.TestCase):
         self.chicken_table_name = ensure_test_table(table_spec)
 
     def tearDown(self):
+        LOGGER.info("Tear down: %s", self.chicken_table_name)
         destroy_test_table(self.chicken_table_name)
         
     def test_catalog(self):
