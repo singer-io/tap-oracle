@@ -60,7 +60,7 @@ class MineFloats(unittest.TestCase):
                                   {"name" : '"our_binary_double"',         "type" : "binary_double"}],
                      "name" : "CHICKEN"}
 
-        self.chicken_table_name = ensure_test_table(table_spec)
+        self.timestamped_table_name = ensure_test_table(table_spec)
 
 
     def update_add_5(self, v):
@@ -77,7 +77,7 @@ class MineFloats(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_stream = [s for s in catalog.streams if s.table == self.chicken_table_name][0]
+            chicken_stream = [s for s in catalog.streams if s.table == self.timestamped_table_name][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
             chicken_stream = set_replication_method_for_stream(chicken_stream, 'LOG_BASED')
@@ -86,7 +86,7 @@ class MineFloats(unittest.TestCase):
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
             our_fake_float = decimal.Decimal('1234567.8901234')
             our_real_float = 1234567.8901234
-            crud_up_log_miner_fixtures(cur, self.chicken_table_name, {
+            crud_up_log_miner_fixtures(cur, self.timestamped_table_name, {
                 '"our_double_precision"': our_fake_float,
                 '"our_real"':         our_fake_float,
                 '"our_binary_float"': our_real_float,

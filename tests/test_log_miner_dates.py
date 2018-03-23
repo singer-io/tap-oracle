@@ -55,7 +55,7 @@ class MineDates(unittest.TestCase):
                                       {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}
             ],
                           "name" : "CHICKEN"}
-            self.chicken_table_name = ensure_test_table(table_spec)
+            self.timestamped_table_name = ensure_test_table(table_spec)
 
     def update_add_1_day(self, v):
         if v is not None:
@@ -72,7 +72,7 @@ class MineDates(unittest.TestCase):
             conn.autocommit = True
 
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_stream = [s for s in catalog.streams if s.table == self.chicken_table_name][0]
+            chicken_stream = [s for s in catalog.streams if s.table == self.timestamped_table_name][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
             chicken_stream = set_replication_method_for_stream(chicken_stream, 'LOG_BASED')
@@ -89,7 +89,7 @@ class MineDates(unittest.TestCase):
             auckland_tz = pytz.timezone('Pacific/Auckland')
             our_ts_local  = auckland_tz.localize(datetime.datetime(1997, 3, 3, 18, 3, 3, 722184))
 
-            crud_up_log_miner_fixtures(cur, self.chicken_table_name, {
+            crud_up_log_miner_fixtures(cur, self.timestamped_table_name, {
                 '"our_date"'           :  our_date,
                 '"our_ts"'             :  our_ts,
                 '"our_ts_tz_edt"'      :  our_ts_tz_edt,

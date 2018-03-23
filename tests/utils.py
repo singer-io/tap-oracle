@@ -187,8 +187,8 @@ def verify_crud_messages(that, caught_messages, pks):
     that.assertTrue(isinstance(caught_messages[10], singer.StateMessage))
     that.assertTrue(isinstance(caught_messages[11], singer.RecordMessage))
     that.assertTrue(isinstance(caught_messages[12], singer.StateMessage))
-    that.assertTrue(isinstance(caught_messages[13], singer.StateMessage))
-
+    that.assertTrue(isinstance(caught_messages[13], singer.StateMessage)) 
+    
     #schema includes scn && _sdc_deleted_at because we selected logminer as our replication method
     that.assertEqual({"type" : ['integer']}, caught_messages[0].schema.get('properties').get('scn') )
     that.assertEqual({"type" : ['null', 'string'], "format" : "date-time"}, caught_messages[0].schema.get('properties').get('_sdc_deleted_at') )
@@ -196,7 +196,7 @@ def verify_crud_messages(that, caught_messages, pks):
     that.assertEqual(pks, caught_messages[0].key_properties)
 
     #verify first STATE message
-    bookmarks_1 = caught_messages[2].value.get('bookmarks')['ROOT-CHICKEN']
+    bookmarks_1 = caught_messages[2].value.get('bookmarks')['ROOT-' + that.timestamped_table_name]
     that.assertIsNotNone(bookmarks_1)
     bookmarks_1_scn = bookmarks_1.get('scn')
     bookmarks_1_version = bookmarks_1.get('version')
@@ -204,7 +204,7 @@ def verify_crud_messages(that, caught_messages, pks):
     that.assertIsNotNone(bookmarks_1_version)
 
     #verify STATE message after UPDATE
-    bookmarks_2 = caught_messages[6].value.get('bookmarks')['ROOT-CHICKEN']
+    bookmarks_2 = caught_messages[6].value.get('bookmarks')['ROOT-' + that.timestamped_table_name]
     that.assertIsNotNone(bookmarks_2)
     bookmarks_2_scn = bookmarks_2.get('scn')
     bookmarks_2_version = bookmarks_2.get('version')

@@ -85,7 +85,7 @@ class FullTable(unittest.TestCase):
                                       {"name" : '"name-varchar2-explicit-char"', "type": "varchar2(251 char)"}
             ],
                           "name" : "CHICKEN"}
-            ensure_test_table(table_spec)
+            self.chicken_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         singer.write_message = singer_write_message
@@ -95,7 +95,7 @@ class FullTable(unittest.TestCase):
 
 
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
+            chicken_stream = [s for s in catalog.streams if s.table == self.chicken_table_name][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
             #unselect the NO_SYNC column
@@ -153,7 +153,7 @@ class FullTable(unittest.TestCase):
                 '"name-varchar2-explicit-char"': 'name-varchar2-explicit-char I'
                 }
 
-            insert_record(cur, 'CHICKEN', rec_1)
+            insert_record(cur, self.chicken_table_name, rec_1)
             rec_2 = copy.deepcopy(rec_1)
             rec_2.update({'"size_number_4_0"' : 101,
                           '"our_number_10_2"' : decimal.Decimal('101.11') + 1,
@@ -161,7 +161,7 @@ class FullTable(unittest.TestCase):
                           '"our_date"' : our_date + datetime.timedelta(days=1),
                           'NAME_NCHAR' :  'name-nchar II'})
 
-            insert_record(cur, 'CHICKEN', rec_2)
+            insert_record(cur, self.chicken_table_name, rec_2)
 
             state = {}
             tap_oracle.do_sync(conn, catalog, None, state)

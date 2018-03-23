@@ -55,7 +55,7 @@ class MineInts(unittest.TestCase):
                      "name" : "CHICKEN"}
 
 
-        self.chicken_table_name = ensure_test_table(table_spec)
+        self.timestamped_table_name = ensure_test_table(table_spec)
 
 
     def update_add_5(self, v):
@@ -72,7 +72,7 @@ class MineInts(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
             catalog = tap_oracle.do_discovery(conn,[])
-            chicken_stream = [s for s in catalog.streams if s.table == self.chicken_table_name][0]
+            chicken_stream = [s for s in catalog.streams if s.table == self.timestamped_table_name][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
             chicken_stream = set_replication_method_for_stream(chicken_stream, 'LOG_BASED')
@@ -80,7 +80,7 @@ class MineInts(unittest.TestCase):
             cur = conn.cursor()
             prev_scn = cur.execute("SELECT current_scn FROM V$DATABASE").fetchall()[0][0]
 
-            crud_up_log_miner_fixtures(cur, self.chicken_table_name,
+            crud_up_log_miner_fixtures(cur, self.timestamped_table_name,
                                        {
                                            '"size_none"': None,
                                            '"size_number_4_0"': 100,
