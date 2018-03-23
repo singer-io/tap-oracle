@@ -47,7 +47,7 @@ class UnsupportedPK(unittest.TestCase):
                           "name": "CHICKEN"}
 
 
-            ensure_test_table(table_spec)
+            self.chicken_table_name = ensure_test_table(table_spec)
 
     def test_catalog(self):
         singer.write_message = singer_write_message
@@ -56,7 +56,7 @@ class UnsupportedPK(unittest.TestCase):
             conn.autocommit = True
 
             catalog = tap_oracle.do_discovery(conn, [])
-            chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
+            chicken_stream = [s for s in catalog.streams if s.table == self.chicken_table_name][0]
             mdata = metadata.to_map(chicken_stream.metadata)
 
             self.assertEqual(mdata,
@@ -77,9 +77,9 @@ class UnsupportedPK(unittest.TestCase):
             cur = conn.cursor()
 
             cur.execute("""
-               INSERT INTO CHICKEN (AGE, INTERVAL_COLUMN) values (3,
+               INSERT INTO {} (AGE, INTERVAL_COLUMN) values (3,
                    TIMESTAMP '2001-09-04 17:00:00.000000' - TIMESTAMP '2001-09-03 17:00:00.000000'
-               )""")
+               )""".format(self.chicken_table_name))
 
             state = {}
             tap_oracle.do_sync(conn, catalog, None, state)
