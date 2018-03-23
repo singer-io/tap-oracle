@@ -40,7 +40,7 @@ def build_col_sql( col):
     return col_sql
 
 def build_unique_table_name(table):
-    return table['name'] + '_' + str(int(datetime.datetime.today().timestamp()))
+    return table['name'] + '_' + str(datetime.datetime.today().timestamp()).replace('.', '')
 
 def build_table(table_name, table):
     create_sql = "CREATE TABLE {}\n".format(table_name)
@@ -63,13 +63,24 @@ def ensure_test_table(table_spec):
 
     with get_test_connection() as conn:
         cur = conn.cursor()
-        old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
+        old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", unique_table_name)).fetchall()
         if len(old_table) != 0:
-            cur.execute("DROP TABLE {}".format(table_spec['name']))
+            cur.execute("DROP TABLE {}".format(unique_table_name))
 
         print(sql)
         cur.execute(sql)
     return unique_table_name
+
+
+def destroy_test_table(table_name):
+    with get_test_connection() as conn:
+        cur = conn.cursor()
+        old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_name)).fetchall()
+        if len(old_table) != 0:
+            cur.execute("DROP TABLE {}".format(table_name))
+
+        print(sql)
+        cur.execute(sql)
 
 def unselect_column(our_stream, col):
     md = metadata.to_map(our_stream.metadata)

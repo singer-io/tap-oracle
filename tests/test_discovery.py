@@ -5,9 +5,9 @@ import os
 import pdb
 from singer import get_logger
 try:
-    from tests.utils import get_test_connection, ensure_test_table
+    from tests.utils import get_test_connection, ensure_test_table, destroy_test_table
 except ImportError:
-    from utils import get_test_connection, ensure_test_table
+    from utils import get_test_connection, ensure_test_table, destroy_test_table
 
 LOGGER = get_logger()
 
@@ -307,6 +307,9 @@ class TestFilterSchemas(unittest.TestCase):
                     discovered_streams[schema_name].append(s.tap_stream_id)
 
             self.assertEqual(list(discovered_streams.keys()),  ['ROOT'])
+
+    def tearDown(self):
+        destroy_test_table(self.chicken_table_name)
 
 if __name__== "__main__":
     test1 = TestStringTableWithPK()
