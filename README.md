@@ -25,3 +25,6 @@ VALUE:24
 DESCRIPTION:ArchiveLog expiration specifies the duration in hours before
 archive/redo log files are automatically deleted.
 /
+---
+
+Copyright &copy; 2018 Stitch
