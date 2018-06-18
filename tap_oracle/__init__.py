@@ -390,13 +390,17 @@ def is_selected_via_metadata(stream):
    return table_md.get('selected')
 
 def do_sync(connection, catalog, default_replication_method, state):
-   streams = list(filter(lambda stream: is_selected_via_metadata(stream), catalog.streams))
+   currently_syncing = singer.get_currently_syncing(state)
+   streams = list(filter(is_selected_via_metadata, catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
 
-   currently_syncing = singer.get_currently_syncing(state)
-
    if currently_syncing:
-      streams = dropwhile(lambda s: s.tap_stream_id != currently_syncing, streams)
+      LOGGER.info("currently_syncing: %s", currently_syncing)
+      currently_syncing_stream = list(filter(lambda s: s.tap_stream_id == currently_syncing, streams))
+      other_streams = list(filter(lambda s: s.tap_stream_id != currently_syncing, streams))
+      streams = currently_syncing_stream + other_streams
+   else:
+      LOGGER.info("NO currently_syncing")
 
    for stream in streams:
       LOGGER.info("syncing stream %s", stream.tap_stream_id)
