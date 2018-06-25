@@ -13,7 +13,7 @@ import strict_rfc3339
 import copy
 
 try:
-    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+    from tests.utils import get_test_connection, ensure_test_table, ensure_supplemental_logging, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 except ImportError:
     from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 
@@ -60,6 +60,7 @@ class CurrentlySyncing(unittest.TestCase):
                                         {"name" : 'colour', "type": "varchar2(250)"}],
                             "name" : "COW"}
             ensure_test_table(table_spec_2)
+            ensure_supplemental_logging()
 
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow
@@ -111,12 +112,13 @@ class CurrentlySyncing(unittest.TestCase):
             self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.ActivateVersionMessage))
 
 
-            #run another do_sync
+            #run another do_sync which will resume with COW but then also do chicken
             singer.write_message = singer_write_message_ok
             CAUGHT_MESSAGES.clear()
             tap_oracle.do_sync(conn, catalog, None, old_state)
 
-            self.assertEqual(5, len(CAUGHT_MESSAGES))
+            #cow messages
+            self.assertEqual(10, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertEqual("ROOT-COW", singer.get_currently_syncing(CAUGHT_MESSAGES[1].value))
@@ -124,8 +126,17 @@ class CurrentlySyncing(unittest.TestCase):
             self.assertEqual('COW', CAUGHT_MESSAGES[2].stream)
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.ActivateVersionMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
-
             self.assertEqual(None, singer.get_currently_syncing( CAUGHT_MESSAGES[4].value))
+
+            #chicken messages
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.SchemaMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
+            self.assertEqual("ROOT-CHICKEN", singer.get_currently_syncing(CAUGHT_MESSAGES[6].value))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.RecordMessage))
+            self.assertEqual('CHICKEN', CAUGHT_MESSAGES[7].stream)
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.StateMessage))
+            self.assertEqual(None, singer.get_currently_syncing( CAUGHT_MESSAGES[9].value))
 
 
 

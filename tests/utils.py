@@ -53,6 +53,17 @@ def build_table(table):
     return sql
 
 @nottest
+def ensure_supplemental_logging():
+    with get_test_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+ BEGIN
+ rdsadmin.rdsadmin_util.alter_supplemental_logging(
+   p_action => 'ADD',
+   p_type   => 'ALL');
+ END;""")
+
+@nottest
 def ensure_test_table(table_spec):
     sql = build_table(table_spec)
 
