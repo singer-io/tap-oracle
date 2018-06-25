@@ -63,22 +63,30 @@ def row_to_singer_message(stream, row, version, columns, time_extracted):
         version=version,
         time_extracted=time_extracted)
 
-def verify_supplemental_log_level(stream, connection):
+def verify_db_supplemental_log_level(stream, connection):
    cur = connection.cursor()
    cur.execute("SELECT SUPPLEMENTAL_LOG_DATA_ALL FROM V$DATABASE")
    result = cur.fetchone()[0]
 
-   LOGGER.info("supplemental log level: %s", result)
+   LOGGER.info("supplemental log level for database: %s", result)
 
-   if result != 'YES':
-      raise Exception("""
-      Unable to replicate with logminer for stream({}) because supplmental_log_data is not set to 'ALL': {}.
-      Please run: ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-      """.format(stream.tap_stream_id, result))
+   return result == 'YES'
 
+def verify_table_supplemental_log_level(stream, connection):
+   cur = connection.cursor()
+
+   cur.execute("""SELECT * FROM USER_LOG_GROUPS WHERE table_name = :table_name AND LOG_GROUP_TYPE = 'ALL COLUMN LOGGING'""", table_name = stream.table)
+   result = cur.fetchone()
+   LOGGER.info("supplemental log level for table(%s): %s", stream.table, result)
+   return result is not None
 
 def sync_table(connection, stream, state, desired_columns):
-   verify_supplemental_log_level(stream, connection)
+   if not verify_db_supplemental_log_level(stream, connection) and not verify_table_supplemental_log_level(stream, connection):
+      raise Exception("""
+      Unable to replicate with logminer for stream({}) because supplmental_log_data is not set to 'ALL' for either the table or the database.
+      Please run: ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+      """.format(stream.tap_stream_id))
+
 
    stream_version = get_stream_version(stream.tap_stream_id, state)
    cur = connection.cursor()
