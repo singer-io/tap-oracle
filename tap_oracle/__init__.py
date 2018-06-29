@@ -18,10 +18,10 @@ import singer.schema
 from singer import utils, metadata, get_bookmark
 from singer.schema import Schema
 from singer.catalog import Catalog, CatalogEntry
-import cx_Oracle
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.log_miner as log_miner
 import tap_oracle.sync_strategies.full_table as full_table
+import tap_oracle.sync_strategies.common as common
 LOGGER = singer.get_logger()
 
 #LogMiner do not support LONG, LONG RAW, CLOB, BLOB, NCLOB, ADT, or COLLECTION datatypes.
@@ -58,14 +58,6 @@ REQUIRED_CONFIG_KEYS = [
     'password',
     'default_replication_method'
 ]
-
-def make_dsn(config):
-   return cx_Oracle.makedsn(config["host"], config["port"], config["sid"])
-
-def open_connection(config):
-    LOGGER.info("dsn: %s", make_dsn(config))
-    conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))
-    return conn
 
 DEFAULT_NUMERIC_PRECISION=38
 DEFAULT_NUMERIC_SCALE=0
@@ -304,8 +296,9 @@ def discover_columns(connection, table_info, filter_schemas):
 def dump_catalog(catalog):
    catalog.dump()
 
-def do_discovery(connection, filter_schemas):
+def do_discovery(conn_config, filter_schemas):
    LOGGER.info("starting discovery")
+   connection = orc_db.open_connection(conn_config)
    cur = connection.cursor()
 
    row_counts = produce_row_counts(connection, filter_schemas)
@@ -352,114 +345,138 @@ def do_discovery(connection, filter_schemas):
 
    catalog = discover_columns(connection, table_info, filter_schemas)
    dump_catalog(catalog)
+   cur.close()
+   connection.close()
    return catalog
 
-def should_sync_column(metadata, field_name):
-   if metadata.get(('properties', field_name), {}).get('inclusion') == 'unsupported':
-      return False
-
-   if metadata.get(('properties', field_name), {}).get('selected'):
-      return True
-
-   if metadata.get(('properties', field_name), {}).get('inclusion') == 'automatic':
-      return True
-
-   if metadata.get(('properties', field_name), {}).get('selected') == False:
-      return False
-
-   if metadata.get(('properties', field_name), {}).get('selected-by-default'):
-      return True
-
-   return False
-
-def send_schema_message(stream, bookmark_properties):
-   s_md = metadata.to_map(stream.metadata)
-   if s_md.get((), {}).get('is-view'):
-      key_properties = s_md.get((), {}).get('view-key-properties')
-   else:
-      key_properties = s_md.get((), {}).get('table-key-properties')
-
-   schema_message = singer.SchemaMessage(stream=stream.stream,
-                                         schema=stream.schema.to_dict(),
-                                         key_properties=key_properties,
-                                         bookmark_properties=bookmark_properties)
-   singer.write_message(schema_message)
 
 def is_selected_via_metadata(stream):
    table_md = metadata.to_map(stream.metadata).get((), {})
    return table_md.get('selected')
 
-def do_sync(connection, catalog, default_replication_method, state):
+
+def clear_state_on_replication_change(state, tap_stream_id, replication_key, replication_method):
+    #user changed replication, nuke state
+    last_replication_method = singer.get_bookmark(state, tap_stream_id, 'last_replication_method')
+    if last_replication_method is not None and (replication_method != last_replication_method):
+        state = singer.reset_stream(state, tap_stream_id)
+
+    state = singer.write_bookmark(state, tap_stream_id, 'last_replication_method', replication_method)
+    return state
+
+def sync_method_for_streams(streams, state, default_replication_method):
+    lookup = {}
+    traditional_steams = []
+    logical_streams = []
+
+    for stream in streams:
+        stream_metadata = metadata.to_map(stream.metadata)
+        replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
+        replication_key = stream_metadata.get((), {}).get('replication-key')
+
+        state = clear_state_on_replication_change(state, stream.tap_stream_id, replication_key, replication_method)
+
+        if replication_method not in set(['LOG_BASED', 'FULL_TABLE']):
+            raise Exception("Unrecognized replication_method {}".format(replication_method))
+
+        if replication_method == 'LOG_BASED' and stream_metadata.get((), {}).get('is-view'):
+            raise Exception('LogMiner is NOT supported for views. Please change the replication method for {}'.format(stream.tap_stream_id))
+
+        if replication_method == 'FULL_TABLE':
+            lookup[stream.tap_stream_id] = 'full'
+            traditional_steams.append(stream)
+        elif not get_bookmark(state, stream.tap_stream_id, 'scn'):
+            #initial full-table phase of LogMiner
+            lookup[stream.tap_stream_id] = 'log_initial'
+            traditional_steams.append(stream)
+
+        else:
+            #initial stage of LogMiner(full-table) has been completed. moving onto pure LogMiner
+            lookup[stream.tap_stream_id] = 'pure_log'
+            logical_streams.append(stream)
+
+    return lookup, traditional_steams, logical_streams
+
+def sync_log_miner_streams(conn_config, log_miner_streams, state):
+    if log_miner_streams:
+       log_miner_streams = list(map(log_miner.add_automatic_properties, log_miner_streams))
+       state = log_miner.sync_tables(conn_config, log_miner_streams, state)
+
+
+    return state
+
+def sync_traditional_stream(conn_config, stream, state, sync_method):
+   LOGGER.info("Beginning sync of stream(%s) with sync method(%s)", stream.tap_stream_id, sync_method)
+   md_map = metadata.to_map(stream.metadata)
+   desired_columns = [c for c in stream.schema.properties.keys() if common.should_sync_column(md_map, c)]
+   desired_columns.sort()
+   if len(desired_columns) == 0:
+      LOGGER.warning('There are no columns selected for stream %s, skipping it', stream.tap_stream_id)
+      return state
+
+   if sync_method == 'full':
+      state = singer.set_currently_syncing(state, stream.tap_stream_id)
+      common.send_schema_message(stream, [])
+      state = full_table.sync_table(conn_config, stream, state, desired_columns)
+   elif sync_method == 'log_initial':
+      #start off with full-table replication
+      LOGGER.info("stream %s is using log_miner. will use full table for first run", stream.tap_stream_id)
+      state = singer.set_currently_syncing(state, stream.tap_stream_id)
+      end_scn = log_miner.fetch_current_scn(conn_config)
+      common.send_schema_message(stream, [])
+      state = full_table.sync_table(conn_config, stream, state, desired_columns)
+      #once we are done with full table, write the scn to the state
+      state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
+   else:
+      raise Exception("unknown sync method {} for stream {}".format(sync_method, stream.tap_stream_id))
+
+   state = singer.set_currently_syncing(state, None)
+   singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+   return state
+
+def do_sync(conn_config, catalog, default_replication_method, state):
    currently_syncing = singer.get_currently_syncing(state)
    streams = list(filter(is_selected_via_metadata, catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
 
+   sync_method_lookup, traditional_streams, logical_streams = sync_method_for_streams(streams, state, default_replication_method)
+
    if currently_syncing:
-      LOGGER.info("currently_syncing: %s", currently_syncing)
-      currently_syncing_stream = list(filter(lambda s: s.tap_stream_id == currently_syncing, streams))
-      other_streams = list(filter(lambda s: s.tap_stream_id != currently_syncing, streams))
-      streams = currently_syncing_stream + other_streams
-   else:
-      LOGGER.info("NO currently_syncing")
-
-   for stream in streams:
-      LOGGER.info("syncing stream %s", stream.tap_stream_id)
-      state = singer.set_currently_syncing(state, stream.tap_stream_id)
-      stream_metadata = metadata.to_map(stream.metadata)
-
-      desired_columns =  [c for c in stream.schema.properties.keys() if should_sync_column(stream_metadata, c)]
-      desired_columns.sort()
-      if len(desired_columns) == 0:
-         LOGGER.warning('There are no columns selected for stream %s, skipping it', stream.tap_stream_id)
-         continue
-
-      replication_method = stream_metadata.get((), {}).get('replication-method', default_replication_method)
-      if replication_method == 'LOG_BASED' and metadata.to_map(stream.metadata).get((), {}).get('is-view'):
-         LOGGER.warning('Log Miner is NOT supported for views. skipping stream %s', stream.tap_stream_id)
-         continue
-
-
-      if replication_method == 'LOG_BASED':
-         if get_bookmark(state, stream.tap_stream_id, 'scn'):
-            LOGGER.info("stream %s is using log_miner", stream.tap_stream_id)
-            log_miner.add_automatic_properties(stream)
-            send_schema_message(stream, ['scn'])
-            state = log_miner.sync_table(connection, stream, state, desired_columns)
-
-         else:
-            #start off with full-table replication
-            LOGGER.info("stream %s is using log_miner. will use full table for first run", stream.tap_stream_id)
-            end_scn = log_miner.fetch_current_scn(connection)
-            send_schema_message(stream, [])
-            state = full_table.sync_table(connection, stream, state, desired_columns)
-
-            #once we are done with full table, write the scn to the state
-            state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
-
-      elif replication_method == 'FULL_TABLE':
-         LOGGER.info("stream %s is using full_table", stream.tap_stream_id)
-         send_schema_message(stream, [])
-         state = full_table.sync_table(connection, stream, state, desired_columns)
+      LOGGER.info("found currently_syncing: %s", currently_syncing)
+      currently_syncing_stream = list(filter(lambda s: s.tap_stream_id == currently_syncing, traditional_streams))
+      if currently_syncing_stream is None:
+         LOGGER.warning("unable to locate currently_syncing(%s) amongst selected traditional streams(%s). will ignore", currently_syncing, list(map(lambda s: s.tap_stream_id, traditional_streams)))
+         other_streams = list(filter(lambda s: s.tap_stream_id != currently_syncing, traditional_streams))
+         traditional_streams = currently_syncing_stream + other_streams
       else:
-         raise Exception("only LOG_BASED and FULL_TABLE are supported right now :)")
+         LOGGER.info("No currently_syncing found")
 
-      state = singer.set_currently_syncing(state, None)
-      singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+   for stream in traditional_streams:
+      state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id])
+
+   state = sync_log_miner_streams(conn_config, list(logical_streams), state)
+   state = singer.set_currently_syncing(state, None)
+   singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
 def main_impl():
    args = utils.parse_args(REQUIRED_CONFIG_KEYS)
-   connection = open_connection(args.config)
+   conn_config = {'user': args.config['user'],
+                  'password': args.config['password'],
+                  'host': args.config['host'],
+                  'port': args.config['port'],
+                  'sid':  args.config['sid']}
+
 
    if args.discover:
       filter_schemas_prop = args.config.get('filter_schemas')
       filter_schemas = []
       if args.config.get('filter_schemas'):
          filter_schemas = args.config.get('filter_schemas').split(',')
-      do_discovery(connection, filter_schemas)
+      do_discovery(conn_config, filter_schemas)
 
    elif args.catalog:
       state = args.state
-      do_sync(connection, args.catalog, args.config.get('default_replication_method'), state)
+      do_sync(conn_config, args.catalog, args.config.get('default_replication_method'), state)
    else:
       LOGGER.info("No properties were selected")
 
