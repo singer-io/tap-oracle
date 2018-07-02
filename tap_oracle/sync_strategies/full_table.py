@@ -128,6 +128,10 @@ def sync_table(conn_config, stream, state, desired_columns):
 
          counter.increment()
 
+   #once we have completed the full table replication, discard the ORA_ROWSCN bookmark.
+   #the ORA_ROWSCN bookmark only comes into play when a full table replication is interrupted
+   state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', None)
+
    #always send the activate version whether first run or subsequent
    singer.write_message(activate_version_message)
 

@@ -173,10 +173,95 @@ class FullTableInterruption(unittest.TestCase):
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.StateMessage))
         self.assertIsNone(CAUGHT_MESSAGES[9].value['currently_syncing'])
+        self.assertIsNone(CAUGHT_MESSAGES[9].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
 
 
+class LogicalInterruption(unittest.TestCase):
+    maxDiff = None
+    def setUp(self):
+        table_spec_1 = {"columns": [{"name": "name", "type" : "varchar(70)"},
+                                    {"name" : 'age', "type": "integer "}],
+                        "name" : 'COW',
+                        'ROWDEPENDENCIES': True}
+        ensure_test_table(table_spec_1)
+
+        global COW_RECORD_COUNT
+        COW_RECORD_COUNT = 0
+        global CAUGHT_MESSAGES
+        CAUGHT_MESSAGES.clear()
+
+    def test_catalog(self):
+        singer.write_message = singer_write_message_bad
+
+        conn_config = get_test_conn_config()
+        catalog = tap_oracle.do_discovery(conn_config, [])
+        cow_stream = [s for s in catalog.streams if s.table == 'COW'][0]
+        self.assertIsNotNone(cow_stream)
+        cow_stream = select_all_of_stream(cow_stream)
+        cow_stream = set_replication_method_for_stream(cow_stream, 'LOG_BASED')
+
+        with get_test_connection() as conn:
+            conn.autocommit = True
+            cur = conn.cursor()
+
+            cow_rec = {'name' : 'arnold', 'age' : 10}
+            insert_record(cur, 'COW', cow_rec)
+            cow_rec = {'name' : 'beta', 'age' : 4}
+            insert_record(cur, 'COW', cow_rec)
+            chicken_rec = {'name' : 'carl', 'age' : 20}
+            insert_record(cur, 'COW', chicken_rec)
+
+            chicken_rec = {'name' : 'dannie', 'age' : 76}
+            insert_record(cur, 'COW', chicken_rec)
+
+        state = {}
+        #this will only sync the 1 COW and then blew up
+        try:
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
+        except Exception as ex:
+            # LOGGER.exception(ex)
+            blew_up_on_cow = True
+
+        self.assertTrue(blew_up_on_cow)
+
+        self.assertEqual(7, len(CAUGHT_MESSAGES))
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
+        old_state = CAUGHT_MESSAGES[6].value
+
+        #run another do_sync to complete the initial full table
+        singer.write_message = singer_write_message_ok
+        blew_up_on_cow = False
+        CAUGHT_MESSAGES.clear()
+        tap_oracle.do_sync(get_test_conn_config(), catalog, None, old_state)
+
+        self.assertFalse(blew_up_on_cow)
+        self.assertEqual(10, len(CAUGHT_MESSAGES))
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.StateMessage))
+        self.assertIsNone(CAUGHT_MESSAGES[9].value['currently_syncing'])
+        self.assertIsNone(CAUGHT_MESSAGES[9].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        old_state = CAUGHT_MESSAGES[9].value
+
+        #run sync again, this time in pure logical replication
+        with get_test_connection() as conn:
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("UPDATE COW SET age = 77 WHERE name = 'dannie'")
+
+
+        CAUGHT_MESSAGES.clear()
+        tap_oracle.do_sync(get_test_conn_config(), catalog, None, old_state)
+        self.assertEqual(3, len(CAUGHT_MESSAGES))
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.RecordMessage))
+        self.assertEqual('COW', CAUGHT_MESSAGES[1].stream)
+        self.assertEqual('dannie', CAUGHT_MESSAGES[1].record.get('NAME'))
+        self.assertEqual(77, CAUGHT_MESSAGES[1].record.get('AGE'))
+
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.StateMessage))
+        self.assertIsNone(CAUGHT_MESSAGES[2].value['currently_syncing'])
+        self.assertIsNone(CAUGHT_MESSAGES[2].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
 
 if __name__== "__main__":
-    test1 = FullTableInterruption()
+    test1 = LogicalInterruption()
     test1.setUp()
     test1.test_catalog()
