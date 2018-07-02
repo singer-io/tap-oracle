@@ -6,7 +6,7 @@ import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
 try:
-    from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
+    from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 except ImportError:
     from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 
@@ -55,7 +55,7 @@ class UnsupportedPK(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
 
-            catalog = tap_oracle.do_discovery(conn, [])
+            catalog = tap_oracle.do_discovery(get_test_conn_config(), [])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             mdata = metadata.to_map(chicken_stream.metadata)
 
@@ -82,7 +82,7 @@ class UnsupportedPK(unittest.TestCase):
                )""")
 
             state = {}
-            tap_oracle.do_sync(conn, catalog, None, state)
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
 
 
             #messages: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion

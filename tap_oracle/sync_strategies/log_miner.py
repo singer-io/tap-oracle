@@ -116,7 +116,7 @@ def sync_tables(conn_config, streams, state):
                                  OPTIONS => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG +
                                             DBMS_LOGMNR.COMMITTED_DATA_ONLY +
                                             DBMS_LOGMNR.CONTINUOUS_MINE);
-                         END;""".format(get_bookmark(state, stream.tap_stream_id, 'scn'), end_scn)
+                         END;""".format(start_scn, end_scn)
 
    LOGGER.info("Starting LogMiner for %s: %s -> %s", list(map(lambda s: s.tap_stream_id, streams)), start_scn, end_scn)
    LOGGER.info("%s",start_logmnr_sql)
@@ -124,6 +124,7 @@ def sync_tables(conn_config, streams, state):
 
    #mine changes
    for stream in streams:
+
       cur = connection.cursor()
       md_map = metadata.to_map(stream.metadata)
       desired_columns = [c for c in stream.schema.properties.keys() if common.should_sync_column(md_map, c)]
@@ -146,6 +147,7 @@ def sync_tables(conn_config, streams, state):
       columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
       with metrics.record_counter(None) as counter:
          LOGGER.info("Examing log for table %s", stream.tap_stream_id)
+         common.send_schema_message(stream, ['lsn'])
          for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
@@ -161,7 +163,6 @@ def sync_tables(conn_config, streams, state):
             else:
                raise Exception("unrecognized logminer operation: {}".format(op))
 
-            common.send_schema_message(stream, ['lsn'])
             singer.write_message(record_message)
             rows_saved = rows_saved + 1
             counter.increment()
@@ -173,6 +174,11 @@ def sync_tables(conn_config, streams, state):
 
             if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
                singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
+   for s in streams:
+      LOGGER.info("updating bookmark for stream %s to end_lsn %s", s.tap_stream_id, end_scn)
+      state = singer.write_bookmark(state, s.tap_stream_id, 'scn', end_scn)
+      singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
    cur.close()
    connection.close()

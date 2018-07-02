@@ -446,17 +446,17 @@ def do_sync(conn_config, catalog, default_replication_method, state):
       currently_syncing_stream = list(filter(lambda s: s.tap_stream_id == currently_syncing, traditional_streams))
       if currently_syncing_stream is None:
          LOGGER.warning("unable to locate currently_syncing(%s) amongst selected traditional streams(%s). will ignore", currently_syncing, list(map(lambda s: s.tap_stream_id, traditional_streams)))
+      else:
          other_streams = list(filter(lambda s: s.tap_stream_id != currently_syncing, traditional_streams))
          traditional_streams = currently_syncing_stream + other_streams
-      else:
-         LOGGER.info("No currently_syncing found")
+   else:
+      LOGGER.info("No currently_syncing found")
 
    for stream in traditional_streams:
       state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id])
 
    state = sync_log_miner_streams(conn_config, list(logical_streams), state)
-   state = singer.set_currently_syncing(state, None)
-   singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+   return state
 
 def main_impl():
    args = utils.parse_args(REQUIRED_CONFIG_KEYS)
