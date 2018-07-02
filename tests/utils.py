@@ -52,7 +52,10 @@ def build_table(table):
     else:
        pk_sql = ""
 
-    sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
+    if table['ROWDEPENDENCIES']:
+        sql = "{} ( {} {} ) ROWDEPENDENCIES".format(create_sql, ",\n".join(col_sql), pk_sql)
+    else:
+        sql = "{} ( {} {} )".format(create_sql, ",\n".join(col_sql), pk_sql)
 
     return sql
 
@@ -70,7 +73,6 @@ def ensure_supplemental_logging():
 @nottest
 def ensure_test_table(table_spec):
     sql = build_table(table_spec)
-
     with get_test_connection() as conn:
         cur = conn.cursor()
         old_table = cur.execute("select * from all_tables where owner  = '{}' AND table_name = '{}'".format("ROOT", table_spec['name'])).fetchall()
