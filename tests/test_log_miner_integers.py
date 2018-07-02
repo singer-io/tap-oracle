@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
+from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
 import tap_oracle.sync_strategies.log_miner as log_miner
 
 LOGGER = get_logger()
@@ -71,7 +71,7 @@ class MineInts(unittest.TestCase):
 
         with get_test_connection() as conn:
             conn.autocommit = True
-            catalog = tap_oracle.do_discovery(conn,[])
+            catalog = tap_oracle.do_discovery(get_test_conn_config(),[])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
@@ -96,7 +96,7 @@ class MineInts(unittest.TestCase):
 
             state = write_bookmark({}, chicken_stream.tap_stream_id, 'scn', prev_scn)
             state = write_bookmark(state, chicken_stream.tap_stream_id, 'version', 1)
-            tap_oracle.do_sync(conn, catalog, None, state)
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
 
             verify_crud_messages(self, CAUGHT_MESSAGES, ['SIZE_PK'])
 

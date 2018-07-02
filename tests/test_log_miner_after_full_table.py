@@ -5,7 +5,7 @@ import tap_oracle
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
-from tests.utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, insert_record, unselect_column
+from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, insert_record, unselect_column
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
@@ -87,8 +87,7 @@ class FullTable(unittest.TestCase):
         with get_test_connection() as conn:
             conn.autocommit = True
 
-
-            catalog = tap_oracle.do_discovery(conn, [])
+            catalog = tap_oracle.do_discovery(get_test_conn_config(), [])
             chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
             chicken_stream = select_all_of_stream(chicken_stream)
 
@@ -119,7 +118,7 @@ class FullTable(unittest.TestCase):
 
             original_state = {}
             #initial run should be full_table
-            tap_oracle.do_sync(conn, catalog, None, original_state)
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, original_state)
 
             #messages for initial full table replication: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
             self.assertEqual(7, len(CAUGHT_MESSAGES))
@@ -152,7 +151,7 @@ class FullTable(unittest.TestCase):
             insert_record(cur, 'CHICKEN', rec_3)
 
             #this sync should activate logminer because of the scn in state
-            tap_oracle.do_sync(conn, catalog, None, state)
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
 
             #TODO: assert new scn
             self.assertEqual(3, len(CAUGHT_MESSAGES))

@@ -10,7 +10,7 @@ import datetime
 
 LOGGER = get_logger()
 
-def get_test_connection():
+def get_test_conn_config():
     creds = {}
     missing_envs = [x for x in [os.getenv('TAP_ORACLE_HOST'),
                                 os.getenv('TAP_ORACLE_USER'),
@@ -27,6 +27,10 @@ def get_test_connection():
     creds['port'] = os.environ.get('TAP_ORACLE_PORT')
     creds['sid'] = os.environ.get('TAP_ORACLE_SID')
 
+    return creds
+
+def get_test_connection():
+    creds = get_test_conn_config()
     conn_string = '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID={})))'.format(creds['host'], creds['port'], creds['sid'])
 
     conn = cx_Oracle.connect(creds['user'], creds['password'], conn_string)
@@ -51,6 +55,17 @@ def build_table(table):
     sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
 
     return sql
+
+@nottest
+def ensure_supplemental_logging():
+    with get_test_connection() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+ BEGIN
+ rdsadmin.rdsadmin_util.alter_supplemental_logging(
+   p_action => 'ADD',
+   p_type   => 'ALL');
+ END;""")
 
 @nottest
 def ensure_test_table(table_spec):
@@ -166,7 +181,6 @@ def crud_up_log_miner_fixtures(cursor, table_name, data, update_munger_fn):
     return True
 
 def verify_crud_messages(that, caught_messages, pks):
-
     that.assertEqual(14, len(caught_messages))
     that.assertTrue(isinstance(caught_messages[0], singer.SchemaMessage))
     that.assertTrue(isinstance(caught_messages[1], singer.RecordMessage))

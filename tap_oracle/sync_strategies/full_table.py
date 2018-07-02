@@ -47,7 +47,8 @@ def prepare_columns_sql(stream, c):
 
    return column_name
 
-def sync_table(connection, stream, state, desired_columns):
+def sync_table(conn_config, stream, state, desired_columns):
+   connection = orc_db.open_connection(conn_config)
    connection.outputtypehandler = OutputTypeHandler
 
    stream_metadata = metadata.to_map(stream.metadata)
@@ -72,7 +73,7 @@ def sync_table(connection, stream, state, desired_columns):
                                  nascent_stream_version)
    singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
-   cur = connection.cursor()
+   # cur = connection.cursor()
    md = metadata.to_map(stream.metadata)
    schema_name = md.get(()).get('schema-name')
 
@@ -103,4 +104,6 @@ def sync_table(connection, stream, state, desired_columns):
    #always send the activate version whether first run or subsequent
    singer.write_message(activate_version_message)
 
+   cur.close()
+   connection.close()
    return state
