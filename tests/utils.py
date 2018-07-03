@@ -52,7 +52,7 @@ def build_table(table):
     else:
        pk_sql = ""
 
-    if table['ROWDEPENDENCIES']:
+    if table.get('ROWDEPENDENCIES'):
         sql = "{} ( {} {} ) ROWDEPENDENCIES".format(create_sql, ",\n".join(col_sql), pk_sql)
     else:
         sql = "{} ( {} {} )".format(create_sql, ",\n".join(col_sql), pk_sql)

@@ -2,6 +2,7 @@ import unittest
 import os
 import cx_Oracle, sys, string, datetime
 import tap_oracle
+import tap_oracle.sync_strategies.full_table as full_table
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
@@ -36,7 +37,7 @@ def do_not_dump_catalog(catalog):
     pass
 
 tap_oracle.dump_catalog = do_not_dump_catalog
-
+full_table.UPDATE_BOOKMARK_PERIOD = 1
 
 class FullTable(unittest.TestCase):
     maxDiff = None
@@ -84,7 +85,8 @@ class FullTable(unittest.TestCase):
                                       {"name" : '"name-varchar2-explicit-byte"', "type": "varchar2(250 byte)"},
                                       {"name" : '"name-varchar2-explicit-char"', "type": "varchar2(251 char)"}
             ],
-                          "name" : "CHICKEN"}
+                          "name" : "CHICKEN",
+                          'ROWDEPENDENCIES': True}
             ensure_test_table(table_spec)
 
     def test_catalog(self):
@@ -166,22 +168,24 @@ class FullTable(unittest.TestCase):
             state = {}
             tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
 
-            #messages: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
-            self.assertEqual(7, len(CAUGHT_MESSAGES))
+
+            self.assertEqual(9, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.ActivateVersionMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.StateMessage))
 
             state = CAUGHT_MESSAGES[1].value
             version = state.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
 
             self.assertIsNotNone(version)
             self.assertEqual(CAUGHT_MESSAGES[2].version, version)
-            self.assertEqual(CAUGHT_MESSAGES[5].version, version)
+            self.assertEqual(CAUGHT_MESSAGES[7].version, version)
             edt = pytz.timezone('America/New_York')
 
             expected_rec_1 = {'ID'                  : 1,
@@ -238,22 +242,24 @@ class FullTable(unittest.TestCase):
                 'NAME_NCHAR' :  'name-nchar II                                                                                                              '})
 
 
-            self.assertTrue(math.isnan(CAUGHT_MESSAGES[4].record.get('our_nan')))
-            CAUGHT_MESSAGES[4].record.pop('our_nan')
+            self.assertTrue(math.isnan(CAUGHT_MESSAGES[5].record.get('our_nan')))
+            CAUGHT_MESSAGES[5].record.pop('our_nan')
 
-            self.assertEqual(CAUGHT_MESSAGES[4].record, expected_rec_2)
+            self.assertEqual(CAUGHT_MESSAGES[5].record, expected_rec_2)
 
             #run another do_sync
             CAUGHT_MESSAGES.clear()
             tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
 
-            self.assertEqual(6, len(CAUGHT_MESSAGES))
+            self.assertEqual(8, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.StateMessage))
 
             nascent_version = CAUGHT_MESSAGES[1].value.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
             self.assertTrue( nascent_version > version)
