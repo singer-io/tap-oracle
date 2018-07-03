@@ -87,7 +87,15 @@ def sync_table(conn_config, stream, state, desired_columns):
    escaped_table   = stream.table
 
    row_scn = singer.get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN')
-   if row_scn:
+
+   #views do not have the ORA_ROWSCN psuedo-column
+   if md.get((), {}).get('is-view'):
+      LOGGER.info("Beginning new Full Table replication for view %s which has not access to ORA_ROWSCN", nascent_stream_version)
+      select_sql      = """SELECT {}
+                             FROM {}.{}""".format(','.join(escaped_columns),
+                                                              escaped_schema,
+                                                              escaped_table)
+   elif row_scn:
       LOGGER.info("Resuming Full Table replication %s from ORA_ROWSCN %s", nascent_stream_version, row_scn)
       select_sql      = """SELECT {}, ORA_ROWSCN
                              FROM {}.{}
@@ -117,11 +125,15 @@ def sync_table(conn_config, stream, state, desired_columns):
       LOGGER.info("select %s", select_sql)
       rows_saved = 0
       for row in cur.execute(select_sql):
-         *row, row_scn = row
+         if not md.get((), {}).get('is-view'):
+            *row, row_scn = row
+
          record_message = row_to_singer_message(stream, row, nascent_stream_version, desired_columns, time_extracted)
 
          singer.write_message(record_message)
-         state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', row_scn)
+         if not md.get((), {}).get('is-view'):
+            state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', row_scn)
+
          rows_saved = rows_saved + 1
          if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
