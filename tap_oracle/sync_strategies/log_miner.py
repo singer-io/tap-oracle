@@ -80,7 +80,7 @@ def verify_db_supplemental_log_level(connection):
 
 def verify_table_supplemental_log_level(stream, connection):
    cur = connection.cursor()
-   cur.execute("""SELECT * FROM USER_LOG_GROUPS WHERE table_name = :table_name AND LOG_GROUP_TYPE = 'ALL COLUMN LOGGING'""", table_name = stream.table)
+   cur.execute("""SELECT * FROM ALL_LOG_GROUPS WHERE table_name = :table_name AND LOG_GROUP_TYPE = 'ALL COLUMN LOGGING'""", table_name = stream.table)
    result = cur.fetchone()
    LOGGER.info("supplemental log level for table(%s): %s", stream.table, result)
    cur.close()
