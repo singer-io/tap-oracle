@@ -107,7 +107,6 @@ def sync_tables(conn_config, streams, state):
    start_scn = min([get_bookmark(state, s.tap_stream_id, 'scn') for s in streams])
    end_scn = fetch_current_scn(conn_config)
    time_extracted = utils.now()
-   cur = connection.cursor()
 
    start_logmnr_sql = """BEGIN
                          DBMS_LOGMNR.START_LOGMNR(
@@ -124,8 +123,6 @@ def sync_tables(conn_config, streams, state):
 
    #mine changes
    for stream in streams:
-
-      cur = connection.cursor()
       md_map = metadata.to_map(stream.metadata)
       desired_columns = [c for c in stream.schema.properties.keys() if common.should_sync_column(md_map, c)]
       redo_value_sql_clause = ",\n ".join(["""DBMS_LOGMNR.MINE_VALUE(REDO_VALUE, :{})""".format(idx+1)
@@ -151,10 +148,7 @@ def sync_tables(conn_config, streams, state):
          for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
-            if op == 'INSERT':
-               redo_vals += [cscn, None]
-               record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
-            elif op == 'UPDATE':
+            if op == 'INSERT' or op == 'UPDATE':
                redo_vals += [cscn, None]
                record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
             elif op == 'DELETE':
