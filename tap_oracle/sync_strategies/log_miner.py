@@ -123,6 +123,8 @@ def sync_tables(conn_config, streams, state):
    cur.execute(start_logmnr_sql)
 
    #mine changes
+   # Alteration to buffer transactions' changes using the XID shown here: https://docs.oracle.com/cd/B19306_01/server.102/b14215/logminer.htm#i1016732
+   transaction_buffer = {}
    for stream in streams:
       md_map = metadata.to_map(stream.metadata)
       desired_columns = [c for c in stream.schema.properties.keys() if common.should_sync_column(md_map, c)]
@@ -134,7 +136,7 @@ def sync_tables(conn_config, streams, state):
       schema_name = md_map.get(()).get('schema-name')
       stream_version = get_stream_version(stream.tap_stream_id, state)
       mine_sql = """
-      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
+      SELECT (XIDUSN || '.' || XIDSLT || '.' || XIDSQN) AS XID, OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE', 'COMMIT', 'ROLLBACK')
       """.format(redo_value_sql_clause, undo_value_sql_clause)
       binds = [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
@@ -146,26 +148,38 @@ def sync_tables(conn_config, streams, state):
       with metrics.record_counter(None) as counter:
          LOGGER.info("Examing log for table %s", stream.tap_stream_id)
          common.send_schema_message(stream, ['lsn'])
-         for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
+         for xid, op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
+            if xid not in transaction_buffer:
+               transaction_buffer[xid] = []
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
+
             if op == 'INSERT' or op == 'UPDATE':
                redo_vals += [cscn, None]
                record_message = row_to_singer_message(stream, redo_vals, stream_version, columns_for_record, time_extracted)
+               transaction_buffer[xid].append(record_message)
             elif op == 'DELETE':
                undo_vals += [cscn, singer.utils.strftime(commit_ts.replace(tzinfo=pytz.UTC))]
                record_message = row_to_singer_message(stream, undo_vals, stream_version, columns_for_record, time_extracted)
+               transaction_buffer[xid].append(record_message)
+            elif op == 'COMMIT':
+               for record_message in transaction_buffer[xid]:
+                  singer.write_message(record_message)
+                  rows_saved = rows_saved + 1
+                  counter.increment()
+                  # TODO: cscn might not be meaningful with this pattern: "System change number (SCN) when the transaction committed; only meaningful if the COMMITTED_DATA_ONLY option was chosen in a DBMS_LOGMNR.START_LOGMNR() invocation"
+                  # TODO: Then again, since this is a commit message, it might be accurate for the whole batch?
+                  # Info on Fields in this table here: https://docs.oracle.com/cd/B28359_01/server.111/b28320/dynviews_2033.htm
+                  state = singer.write_bookmark(state,
+                                                stream.tap_stream_id,
+                                                'scn',
+                                                int(cscn))
+                  del transaction_buffer[xid] # Free the memory for this record.
+            elif op == 'ROLLBACK':
+               # Remove transaction from buffer if we get a rollback
+               del transaction_buffer[xid]
             else:
                raise Exception("unrecognized logminer operation: {}".format(op))
-
-            singer.write_message(record_message)
-            rows_saved = rows_saved + 1
-            counter.increment()
-            state = singer.write_bookmark(state,
-                                          stream.tap_stream_id,
-                                          'scn',
-                                          int(cscn))
-
 
             if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
                singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
