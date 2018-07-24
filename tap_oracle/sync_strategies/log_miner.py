@@ -146,7 +146,7 @@ def sync_tables(conn_config, streams, state):
       with metrics.record_counter(None) as counter:
          LOGGER.info("Examing log for table %s", stream.tap_stream_id)
          common.send_schema_message(stream, ['lsn'])
-         for op, redo, scn, ts, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
+         for op, redo, scn, timestamp, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
             if op == 'INSERT' or op == 'UPDATE':
