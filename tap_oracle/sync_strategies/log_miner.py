@@ -108,13 +108,12 @@ def sync_tables(conn_config, streams, state):
    end_scn = fetch_current_scn(conn_config)
    time_extracted = utils.now()
 
-   # NB: Removed DBMS_LOGMNR.COMMITTED_DATA_ONLY from OPTIONS to evaluate effect on memory consumption and data integrity.
-   #     Ideally, this should be configurable, or we can buffer transactions in memory and when we find a commit, then emit the records
    start_logmnr_sql = """BEGIN
                          DBMS_LOGMNR.START_LOGMNR(
                                  startScn => {},
                                  endScn => {},
                                  OPTIONS => DBMS_LOGMNR.DICT_FROM_ONLINE_CATALOG +
+                                            DBMS_LOGMNR.COMMITTED_DATA_ONLY +
                                             DBMS_LOGMNR.CONTINUOUS_MINE);
                          END;""".format(start_scn, end_scn)
 
