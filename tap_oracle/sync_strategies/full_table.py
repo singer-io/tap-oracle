@@ -65,8 +65,13 @@ def sync_table(conn_config, stream, state, desired_columns):
    #before writing the table version to state, check if we had one to begin with
    first_run = singer.get_bookmark(state, stream.tap_stream_id, 'version') is None
 
-   #pick a new table version
-   nascent_stream_version = int(time.time() * 1000)
+   #pick a new table version IFF we do not have an xmin in our state
+   #the presence of an xmin indicates that we were interrupted last time through
+   if singer.get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN') is None:
+      nascent_stream_version = int(time.time() * 1000)
+   else:
+      nascent_stream_version = singer.get_bookmark(state, stream.tap_stream_id, 'version')
+
    state = singer.write_bookmark(state,
                                  stream.tap_stream_id,
                                  'version',
@@ -81,12 +86,34 @@ def sync_table(conn_config, stream, state, desired_columns):
    escaped_schema  = schema_name
    escaped_table   = stream.table
 
-   select_sql      = 'SELECT {} FROM {}.{}'.format(','.join(escaped_columns),
-                                                   escaped_schema,
-                                                   escaped_table)
+   row_scn = singer.get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN')
+
+   #views do not have the ORA_ROWSCN psuedo-column
+   if md.get((), {}).get('is-view'):
+      LOGGER.info("Beginning new Full Table replication for view %s which has not access to ORA_ROWSCN", nascent_stream_version)
+      select_sql      = """SELECT {}
+                             FROM {}.{}""".format(','.join(escaped_columns),
+                                                              escaped_schema,
+                                                              escaped_table)
+   elif row_scn:
+      LOGGER.info("Resuming Full Table replication %s from ORA_ROWSCN %s", nascent_stream_version, row_scn)
+      select_sql      = """SELECT {}, ORA_ROWSCN
+                             FROM {}.{}
+                            WHERE ORA_ROWSCN >= {}
+                            ORDER BY ORA_ROWSCN ASC""".format(','.join(escaped_columns),
+                                                              escaped_schema,
+                                                              escaped_table,
+                                                              row_scn)
+
+   else:
+      LOGGER.info("Beginning new Full Table replication %s", nascent_stream_version)
+      select_sql      = """SELECT {}, ORA_ROWSCN
+                             FROM {}.{}
+                             ORDER BY ORA_ROWSCN ASC""".format(','.join(escaped_columns),
+                                                               escaped_schema,
+                                                               escaped_table)
 
 
-   #LOGGER.info("select: %s", select_sql)
    activate_version_message = singer.ActivateVersionMessage(
       stream=stream.stream,
       version=nascent_stream_version)
@@ -96,10 +123,26 @@ def sync_table(conn_config, stream, state, desired_columns):
 
    with metrics.record_counter(None) as counter:
       LOGGER.info("select %s", select_sql)
+      rows_saved = 0
       for row in cur.execute(select_sql):
+         if not md.get((), {}).get('is-view'):
+            *row, row_scn = row
+
          record_message = row_to_singer_message(stream, row, nascent_stream_version, desired_columns, time_extracted)
+
          singer.write_message(record_message)
+         if not md.get((), {}).get('is-view'):
+            state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', row_scn)
+
+         rows_saved = rows_saved + 1
+         if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
+            singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
          counter.increment()
+
+   #once we have completed the full table replication, discard the ORA_ROWSCN bookmark.
+   #the ORA_ROWSCN bookmark only comes into play when a full table replication is interrupted
+   state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', None)
 
    #always send the activate version whether first run or subsequent
    singer.write_message(activate_version_message)

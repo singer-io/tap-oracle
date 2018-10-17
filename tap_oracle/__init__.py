@@ -385,11 +385,19 @@ def sync_method_for_streams(streams, state, default_replication_method):
         if replication_method == 'FULL_TABLE':
             lookup[stream.tap_stream_id] = 'full'
             traditional_steams.append(stream)
-        elif not get_bookmark(state, stream.tap_stream_id, 'scn'):
-            #initial full-table phase of LogMiner
-            lookup[stream.tap_stream_id] = 'log_initial'
+        elif get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN') and get_bookmark(state, stream.tap_stream_id, 'scn'):
+            #finishing previously interrupted full-table (first stage of logical replication)
+            lookup[stream.tap_stream_id] = 'logical_initial_interrupted'
             traditional_steams.append(stream)
 
+        elif get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN') and not get_bookmark(state, stream.tap_stream_id, 'scn'):
+           #inconsistent state
+           raise Exception("ORA_ROWSCN found({}) in state implying full-table replication but no scn is present despite LOG_BASED replication being selected".format(get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN')))
+
+        elif not get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN') and not get_bookmark(state, stream.tap_stream_id, 'scn'):
+            #initial full-table phase of logical replication
+            lookup[stream.tap_stream_id] = 'log_initial'
+            traditional_steams.append(stream)
         else:
             #initial stage of LogMiner(full-table) has been completed. moving onto pure LogMiner
             lookup[stream.tap_stream_id] = 'pure_log'
@@ -419,14 +427,19 @@ def sync_traditional_stream(conn_config, stream, state, sync_method):
       common.send_schema_message(stream, [])
       state = full_table.sync_table(conn_config, stream, state, desired_columns)
    elif sync_method == 'log_initial':
-      #start off with full-table replication
-      LOGGER.info("stream %s is using log_miner. will use full table for first run", stream.tap_stream_id)
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
       end_scn = log_miner.fetch_current_scn(conn_config)
+      #start off with full-table replication
+      LOGGER.info("Initial stage of LogMiner. Will use full table for first run")
+      state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
       common.send_schema_message(stream, [])
       state = full_table.sync_table(conn_config, stream, state, desired_columns)
-      #once we are done with full table, write the scn to the state
-      state = singer.write_bookmark(state, stream.tap_stream_id, 'scn', end_scn)
+
+   elif sync_method == 'logical_initial_interrupted':
+      state = singer.set_currently_syncing(state, stream.tap_stream_id)
+      LOGGER.info("Initial stage of LogMiner(full-table) sync was interrupted. resuming...")
+      common.send_schema_message(stream, [])
+      state = full_table.sync_table(conn_config, stream, state, desired_columns)
    else:
       raise Exception("unknown sync method {} for stream {}".format(sync_method, stream.tap_stream_id))
 

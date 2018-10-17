@@ -2,6 +2,7 @@ import unittest
 import os
 import cx_Oracle, sys, string, datetime
 import tap_oracle
+import tap_oracle.sync_strategies.full_table as full_table
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
@@ -31,6 +32,7 @@ def do_not_dump_catalog(catalog):
     pass
 
 tap_oracle.dump_catalog = do_not_dump_catalog
+full_table.UPDATE_BOOKMARK_PERIOD = 1
 
 class FullTable(unittest.TestCase):
     maxDiff = None
@@ -121,23 +123,26 @@ class FullTable(unittest.TestCase):
             tap_oracle.do_sync(get_test_conn_config(), catalog, None, original_state)
 
             #messages for initial full table replication: ActivateVersion, SchemaMessage, Record, Record, State, ActivateVersion
-            self.assertEqual(7, len(CAUGHT_MESSAGES))
+            self.assertEqual(9, len(CAUGHT_MESSAGES))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.ActivateVersionMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
-            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.RecordMessage))
             self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.ActivateVersionMessage))
+            self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.StateMessage))
 
-            state = CAUGHT_MESSAGES[6].value
+
+            state = CAUGHT_MESSAGES[8].value
             version = state.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('version')
             scn = state.get('bookmarks', {}).get(chicken_stream.tap_stream_id, {}).get('scn')
 
             self.assertIsNotNone(version)
             self.assertIsNotNone(scn)
             self.assertEqual(CAUGHT_MESSAGES[2].version, version)
-            self.assertEqual(CAUGHT_MESSAGES[5].version, version)
+            self.assertEqual(CAUGHT_MESSAGES[7].version, version)
 
             #run another do_sync
             CAUGHT_MESSAGES.clear()
