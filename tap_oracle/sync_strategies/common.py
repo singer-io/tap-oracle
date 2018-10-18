@@ -7,7 +7,7 @@ from singer import  metadata
 def should_sync_column(metadata, field_name):
     field_metadata = metadata.get(('properties', field_name), {})
     return singer.should_sync_field(field_metadata.get('inclusion'),
-                                    field.metadata.get('selected'),
+                                    field_metadata.get('selected'),
                                     True)
 
 
