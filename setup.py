@@ -3,14 +3,14 @@
 from setuptools import setup
 
 setup(name='tap-oracle',
-      version='0.0.22',
+      version='0.0.23',
       description='Singer.io tap for extracting data from Oracle',
       author='Stitch',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       install_requires=[
           'singer-python==5.3.1',
-          'requests==2.12.4',
+          'requests==2.20.0',
           'cx_Oracle==6.1',
           'strict-rfc3339==0.7'
       ],
