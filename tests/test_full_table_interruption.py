@@ -190,15 +190,15 @@ class LogicalInterruption(unittest.TestCase):
 class FullTableInterruption(unittest.TestCase):
     maxDiff = None
     def setUp(self):
-        table_spec_1 = {"columns": [{"name": "id", "type" : "serial",       "primary_key" : True},
-                                    {"name" : 'name', "type": "character varying"},
-                                    {"name" : 'colour', "type": "character varying"}],
+        table_spec_1 = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
+                                    {"name" : 'name', "type": "nvarchar2(100)"},
+                                    {"name" : 'colour', "type": "nvarchar2(100)"}],
                         "name" : 'COW'}
         ensure_test_table(table_spec_1)
 
-        table_spec_2 = {"columns": [{"name": "id", "type" : "serial",       "primary_key" : True},
-                                    {"name" : 'name', "type": "character varying"},
-                                    {"name" : 'colour', "type": "character varying"}],
+        table_spec_2 = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
+                                    {"name" : 'name', "type": "nvarchar2(100)"},
+                                    {"name" : 'colour', "type": "nvarchar2(100)"}],
                         "name" : 'CHICKEN'}
         ensure_test_table(table_spec_2)
 
@@ -212,13 +212,13 @@ class FullTableInterruption(unittest.TestCase):
         ox_common.write_schema_message = singer_write_message_ok
 
         conn_config = get_test_conn_config()
-        streams = tap_oracle.do_discoveryo(conn_config, [])
-        cow_stream = [s for s in streams if s.table == 'COW'][0]
+        catalog = tap_oracle.do_discovery(conn_config, [])
+        cow_stream = [s for s in catalog.streams if s.table == 'COW'][0]
         self.assertIsNotNone(cow_stream)
         cow_stream = select_all_of_stream(cow_stream)
         cow_stream = set_replication_method_for_stream(cow_stream, 'FULL_TABLE')
 
-        chicken_stream = [s for s in streams if s.table == 'CHICKEN'][0]
+        chicken_stream = [s for s in catalog.streams if s.table == 'CHICKEN'][0]
         self.assertIsNotNone(chicken_stream)
         chicken_stream = select_all_of_stream(chicken_stream)
         chicken_stream = set_replication_method_for_stream(chicken_stream, 'FULL_TABLE')
@@ -240,7 +240,7 @@ class FullTableInterruption(unittest.TestCase):
         state = {}
         #this will sync the CHICKEN but then blow up on the COW
         try:
-            tap_oracle.do_sync(get_test_conn_config(), {'streams' : streams}, None, state)
+            tap_oracle.do_sync(get_test_conn_config(), catalog, None, state)
         except Exception as ex:
             # LOGGER.exception(ex)
             blew_up_on_cow = True
@@ -250,9 +250,9 @@ class FullTableInterruption(unittest.TestCase):
 
         self.assertEqual(14, len(CAUGHT_MESSAGES))
 
-        self.assertEqual(CAUGHT_MESSAGES[0]['type'], 'SCHEMA')
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
         self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
-        self.assertIsNone(CAUGHT_MESSAGES[1].value['bookmarks']['postgres-public-CHICKEN'].get('xmin'))
+        self.assertIsNone(CAUGHT_MESSAGES[1].value['bookmarks']['ROOT-CHICKEN'].get('ORA_ROWSCN'))
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.ActivateVersionMessage))
         new_version = CAUGHT_MESSAGES[2].version
@@ -261,41 +261,47 @@ class FullTableInterruption(unittest.TestCase):
         self.assertEqual('CHICKEN', CAUGHT_MESSAGES[3].stream)
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.StateMessage))
-        #xmin is set while we are processing the full table replication
-        self.assertIsNotNone(CAUGHT_MESSAGES[4].value['bookmarks']['postgres-public-CHICKEN']['xmin'])
+        #ORA_ROWSCN is set while we are processing the full table replication
+        self.assertIsNotNone(CAUGHT_MESSAGES[4].value['bookmarks']['ROOT-CHICKEN']['ORA_ROWSCN'])
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.ActivateVersionMessage))
         self.assertEqual(CAUGHT_MESSAGES[5].version, new_version)
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.StateMessage))
         self.assertEqual(None, singer.get_currently_syncing( CAUGHT_MESSAGES[6].value))
-        #xmin is cleared at the end of the full table replication
-        self.assertIsNone(CAUGHT_MESSAGES[6].value['bookmarks']['postgres-public-CHICKEN']['xmin'])
+        #ORA_ROWSCN is cleared at the end of the full table replication
+        self.assertIsNone(CAUGHT_MESSAGES[6].value['bookmarks']['ROOT-CHICKEN']['ORA_ROWSCN'])
 
 
         #cow messages
-        self.assertEqual(CAUGHT_MESSAGES[7]['type'], 'SCHEMA')
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.SchemaMessage))
 
-        self.assertEqual("COW", CAUGHT_MESSAGES[7]['stream'])
+        self.assertEqual("COW", CAUGHT_MESSAGES[7].stream)
         self.assertTrue(isinstance(CAUGHT_MESSAGES[8], singer.StateMessage))
-        self.assertIsNone(CAUGHT_MESSAGES[8].value['bookmarks']['postgres-public-COW'].get('xmin'))
-        self.assertEqual("postgres-public-COW", CAUGHT_MESSAGES[8].value['currently_syncing'])
+        self.assertIsNone(CAUGHT_MESSAGES[8].value['bookmarks']['ROOT-COW'].get('ORA_ROWSCN'))
+        self.assertEqual("ROOT-COW", CAUGHT_MESSAGES[8].value['currently_syncing'])
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[9], singer.ActivateVersionMessage))
         cow_version = CAUGHT_MESSAGES[9].version
         self.assertTrue(isinstance(CAUGHT_MESSAGES[10], singer.RecordMessage))
 
-        self.assertEqual(CAUGHT_MESSAGES[10].record['name'], 'betty')
+        self.assertEqual(CAUGHT_MESSAGES[10].record['NAME'], 'betty')
         self.assertEqual('COW', CAUGHT_MESSAGES[10].stream)
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[11], singer.StateMessage))
-        #xmin is set while we are processing the full table replication
-        self.assertIsNotNone(CAUGHT_MESSAGES[11].value['bookmarks']['postgres-public-COW']['xmin'])
+        #ORA_ROWSCN is set while we are processing the full table replication
+        self.assertIsNotNone(CAUGHT_MESSAGES[11].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        betty_ora_row_scn = CAUGHT_MESSAGES[11].value['bookmarks']['ROOT-COW'].get('ORA_ROWSCN')
 
 
-        self.assertEqual(CAUGHT_MESSAGES[12].record['name'], 'smelly')
+        self.assertEqual(CAUGHT_MESSAGES[12].record['NAME'], 'smelly')
         self.assertEqual('COW', CAUGHT_MESSAGES[12].stream)
+
         old_state = CAUGHT_MESSAGES[13].value
+        self.assertIsNotNone(CAUGHT_MESSAGES[13].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        smelly_ora_row_scn = CAUGHT_MESSAGES[13].value['bookmarks']['ROOT-COW'].get('ORA_ROWSCN')
+
+        self.assertGreater(smelly_ora_row_scn, betty_ora_row_scn)
 
         #run another do_sync
         singer.write_message = singer_write_message_ok
@@ -303,47 +309,47 @@ class FullTableInterruption(unittest.TestCase):
         global COW_RECORD_COUNT
         COW_RECORD_COUNT = 0
 
-        tap_oracle.do_sync(get_test_conn_config(), {'streams' : streams}, None, old_state)
+        tap_oracle.do_sync(get_test_conn_config(), catalog, None, old_state)
 
-        self.assertEqual(CAUGHT_MESSAGES[0]['type'], 'SCHEMA')
+        self.assertTrue(isinstance(CAUGHT_MESSAGES[0], singer.SchemaMessage))
         self.assertTrue(isinstance(CAUGHT_MESSAGES[1], singer.StateMessage))
 
         # because we were interrupted, we do not switch versions
-        self.assertEqual(CAUGHT_MESSAGES[1].value['bookmarks']['postgres-public-COW']['version'], cow_version)
-        self.assertIsNotNone(CAUGHT_MESSAGES[1].value['bookmarks']['postgres-public-COW']['xmin'])
-        self.assertEqual("postgres-public-COW", singer.get_currently_syncing(CAUGHT_MESSAGES[1].value))
+        self.assertEqual(CAUGHT_MESSAGES[1].value['bookmarks']['ROOT-COW']['version'], cow_version)
+        self.assertIsNotNone(CAUGHT_MESSAGES[1].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        self.assertEqual("ROOT-COW", singer.get_currently_syncing(CAUGHT_MESSAGES[1].value))
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[2], singer.RecordMessage))
-        self.assertEqual(CAUGHT_MESSAGES[2].record['name'], 'smelly')
+        self.assertEqual(CAUGHT_MESSAGES[2].record['NAME'], 'smelly')
         self.assertEqual('COW', CAUGHT_MESSAGES[2].stream)
 
 
-        #after record: activate version, state with no xmin or currently syncing
+        #after record: activate version, state with no ORA_ROWSCN or currently syncing
         self.assertTrue(isinstance(CAUGHT_MESSAGES[3], singer.StateMessage))
-        #we still have an xmin for COW because are not yet done with the COW table
-        self.assertIsNotNone(CAUGHT_MESSAGES[3].value['bookmarks']['postgres-public-COW']['xmin'])
-        self.assertEqual(singer.get_currently_syncing( CAUGHT_MESSAGES[3].value), 'postgres-public-COW')
+        #we still have an ORA_ROWSCN for COW because are not yet done with the COW table
+        self.assertIsNotNone(CAUGHT_MESSAGES[3].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        self.assertEqual(singer.get_currently_syncing( CAUGHT_MESSAGES[3].value), 'ROOT-COW')
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[4], singer.RecordMessage))
-        self.assertEqual(CAUGHT_MESSAGES[4].record['name'], 'pooper')
+        self.assertEqual(CAUGHT_MESSAGES[4].record['NAME'], 'pooper')
         self.assertEqual('COW', CAUGHT_MESSAGES[4].stream)
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[5], singer.StateMessage))
-        self.assertIsNotNone(CAUGHT_MESSAGES[5].value['bookmarks']['postgres-public-COW']['xmin'])
-        self.assertEqual(singer.get_currently_syncing( CAUGHT_MESSAGES[5].value), 'postgres-public-COW')
+        self.assertIsNotNone(CAUGHT_MESSAGES[5].value['bookmarks']['ROOT-COW']['ORA_ROWSCN'])
+        self.assertEqual(singer.get_currently_syncing( CAUGHT_MESSAGES[5].value), 'ROOT-COW')
 
 
-        #xmin is cleared because we are finished the full table replication
+        #ORA_ROWSCN is cleared because we are finished the full table replication
         self.assertTrue(isinstance(CAUGHT_MESSAGES[6], singer.ActivateVersionMessage))
         self.assertEqual(CAUGHT_MESSAGES[6].version, cow_version)
 
         self.assertTrue(isinstance(CAUGHT_MESSAGES[7], singer.StateMessage))
         self.assertIsNone(singer.get_currently_syncing( CAUGHT_MESSAGES[7].value))
-        self.assertIsNone(CAUGHT_MESSAGES[7].value['bookmarks']['postgres-public-CHICKEN']['xmin'])
+        self.assertIsNone(CAUGHT_MESSAGES[7].value['bookmarks']['ROOT-CHICKEN']['ORA_ROWSCN'])
         self.assertIsNone(singer.get_currently_syncing( CAUGHT_MESSAGES[7].value))
 
 
 if __name__== "__main__":
-    test1 = LogicalInterruption()
+    test1 = FullTableInterruption()
     test1.setUp()
     test1.test_catalog()
