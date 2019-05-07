@@ -8,7 +8,7 @@ jobs:
       - run:
           name: 'Setup virtual env'
           command: |
-            apt-get install virtualenv
+            apt-get -y install virtualenv
             virtualenv -p python3 venv
 
             . venv/bin/activate
