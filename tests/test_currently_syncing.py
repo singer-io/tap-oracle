@@ -11,6 +11,7 @@ import math
 import pytz
 import strict_rfc3339
 import copy
+import tap_oracle.sync_strategies.full_table as full_table
 
 try:
     from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table, ensure_supplemental_logging, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
@@ -21,6 +22,7 @@ except ImportError:
 LOGGER = get_logger()
 
 CAUGHT_MESSAGES = []
+
 
 def singer_write_message_no_cow(message):
     if isinstance(message, singer.RecordMessage) and message.stream != 'CHICKEN':
@@ -61,6 +63,7 @@ class CurrentlySyncing(unittest.TestCase):
                             "name" : "COW"}
             ensure_test_table(table_spec_2)
             ensure_supplemental_logging()
+            full_table.UPDATE_BOOKMARK_PERIOD = 1000
 
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow

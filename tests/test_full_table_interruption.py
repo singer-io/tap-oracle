@@ -4,7 +4,6 @@ import cx_Oracle, sys, string, datetime
 import tap_oracle
 
 import tap_oracle.sync_strategies.full_table as full_table
-import tap_oracle.sync_strategies.common as ox_common
 import pdb
 import singer
 from singer import get_logger, metadata, write_bookmark
@@ -51,9 +50,6 @@ def expected_record(fixture_row):
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
-full_table.UPDATE_BOOKMARK_PERIOD = 1
-
 class LogicalInterruption(unittest.TestCase):
     maxDiff = None
 
@@ -67,10 +63,12 @@ class LogicalInterruption(unittest.TestCase):
         COW_RECORD_COUNT = 0
         global CAUGHT_MESSAGES
         CAUGHT_MESSAGES.clear()
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1
+
 
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow
-        ox_common.write_schema_message = singer_write_message_ok
 
         conn_config = get_test_conn_config()
         catalog = tap_oracle.do_discovery(conn_config, [])
@@ -206,10 +204,12 @@ class FullTableInterruption(unittest.TestCase):
         COW_RECORD_COUNT = 0
         global CAUGHT_MESSAGES
         CAUGHT_MESSAGES.clear()
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1
+
 
     def test_catalog(self):
         singer.write_message = singer_write_message_no_cow
-        ox_common.write_schema_message = singer_write_message_ok
 
         conn_config = get_test_conn_config()
         catalog = tap_oracle.do_discovery(conn_config, [])

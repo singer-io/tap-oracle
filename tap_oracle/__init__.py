@@ -404,7 +404,7 @@ def sync_method_for_streams(streams, state, default_replication_method):
            traditional_steams.append(stream)
 
         #inconsistent state
-        elif get_bookmark(state, stream['tap_stream_id'], 'ORA_ROWSCN') and not get_bookmark(state, stream['tap_stream_id'], 'scn'):
+        elif get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN') and not get_bookmark(state, stream.tap_stream_id, 'scn'):
             raise Exception("ORA_ROWSCN found(%s) in state implying log inintial full-table replication but no scn is present")
 
         else:
@@ -414,11 +414,10 @@ def sync_method_for_streams(streams, state, default_replication_method):
 
     return lookup, traditional_steams, logical_streams
 
-def sync_log_miner_streams(conn_config, log_miner_streams, state):
+def sync_log_miner_streams(conn_config, log_miner_streams, state, end_scn):
     if log_miner_streams:
        log_miner_streams = list(map(log_miner.add_automatic_properties, log_miner_streams))
-       state = log_miner.sync_tables(conn_config, log_miner_streams, state)
-
+       state = log_miner.sync_tables(conn_config, log_miner_streams, state, end_scn)
 
     return state
 
@@ -435,7 +434,10 @@ def sync_traditional_stream(conn_config, stream, state, sync_method, end_scn):
       LOGGER.info("Stream %s is using full_table replication", stream.tap_stream_id)
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
       common.send_schema_message(stream, [])
-      state = full_table.sync_table(conn_config, stream, state, desired_columns)
+      if md_map.get((), {}).get('is-view'):
+         state = full_table.sync_view(conn_config, stream, state, desired_columns)
+      else:
+         state = full_table.sync_table(conn_config, stream, state, desired_columns)
    elif sync_method == 'log_initial':
       #start off with full-table replication
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
@@ -496,7 +498,7 @@ def do_sync(conn_config, catalog, default_replication_method, state):
    for stream in traditional_streams:
       state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id], end_scn)
 
-   state = sync_log_miner_streams(conn_config, list(logical_streams), state)
+   state = sync_log_miner_streams(conn_config, list(logical_streams), state, end_scn)
    return state
 
 def main_impl():

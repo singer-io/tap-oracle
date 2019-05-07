@@ -11,6 +11,7 @@ except ImportError:
     from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 
 import tap_oracle.sync_strategies.log_miner as log_miner
+import tap_oracle.sync_strategies.full_table as full_table
 import decimal
 import math
 import pytz
@@ -21,10 +22,9 @@ LOGGER = get_logger()
 
 CAUGHT_MESSAGES = []
 
+
 def do_not_dump_catalog(catalog):
     pass
-
-tap_oracle.dump_catalog = do_not_dump_catalog
 
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
@@ -39,6 +39,8 @@ def expected_record(fixture_row):
 class UnsupportedPK(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
         with get_test_connection() as conn:
             cur = conn.cursor()
             table_spec = {"columns": [{"name": "interval_column", "type": "INTERVAL DAY TO SECOND",

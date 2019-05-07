@@ -10,7 +10,7 @@ try:
     from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
 except ImportError:
     from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages
-
+import tap_oracle.sync_strategies.full_table as full_table
 
 LOGGER = get_logger()
 
@@ -22,11 +22,12 @@ def singer_write_message(message):
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
-
 class MineStrings(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
         with get_test_connection() as conn:
             cur = conn.cursor()
             cur.execute("""
