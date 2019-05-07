@@ -9,10 +9,12 @@ from tests.utils import get_test_connection, get_test_conn_config, ensure_test_t
 import tap_oracle.sync_strategies.log_miner as log_miner
 import decimal
 import math
+import tap_oracle.sync_strategies.full_table as full_table
 
 LOGGER = get_logger()
 
 CAUGHT_MESSAGES = []
+full_table.UPDATE_BOOKMARK_PERIOD = 1000
 
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
@@ -21,11 +23,11 @@ def singer_write_message(message):
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
-
 class MineFloats(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
         with get_test_connection() as conn:
             cur = conn.cursor()
             cur.execute("""

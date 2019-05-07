@@ -11,6 +11,7 @@ import decimal
 import math
 import pytz
 import strict_rfc3339
+import tap_oracle.sync_strategies.full_table as full_table
 
 LOGGER = get_logger()
 
@@ -19,7 +20,6 @@ CAUGHT_MESSAGES = []
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
 
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
@@ -27,6 +27,9 @@ def singer_write_message(message):
 class MineDates(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
         with get_test_connection() as conn:
             cur = conn.cursor()
             cur.execute("""

@@ -52,8 +52,8 @@ def build_table(table):
     else:
        pk_sql = ""
 
-    sql = "{} ( {} {})".format(create_sql, ",\n".join(col_sql), pk_sql)
-
+    sql = "{} ( {} {}) ROWDEPENDENCIES".format(create_sql, ",\n".join(col_sql), pk_sql)
+    sql = sql
     return sql
 
 @nottest

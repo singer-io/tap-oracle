@@ -4,6 +4,7 @@ import tap_oracle
 import os
 import pdb
 from singer import get_logger
+import tap_oracle.sync_strategies.full_table as full_table
 try:
     from tests.utils import get_test_connection, get_test_conn_config, ensure_test_table
 except ImportError:
@@ -14,7 +15,6 @@ LOGGER = get_logger()
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
 
 class TestStringTableWithPK(unittest.TestCase):
     maxDiff = None
@@ -33,6 +33,9 @@ class TestStringTableWithPK(unittest.TestCase):
                                  {"name" : '"name-varchar2-explicit-char"',  "type": "varchar2(251 char)"}],
                       "name" : "CHICKEN"}
        ensure_test_table(table_spec)
+       tap_oracle.dump_catalog = do_not_dump_catalog
+       full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -94,6 +97,9 @@ class TestIntegerTablePK(unittest.TestCase):
                                  {"name" : '"size_number_smallint"', "type" : "smallint"}],
                      "name" : "CHICKEN"}
        ensure_test_table(table_spec)
+       tap_oracle.dump_catalog = do_not_dump_catalog
+       full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -150,6 +156,9 @@ class TestDecimalPK(unittest.TestCase):
                                  {"name" : '"our_number_38_4"',           "type" : "number(38,4)"}],
                      "name" : "CHICKEN"}
        ensure_test_table(table_spec)
+       tap_oracle.dump_catalog = do_not_dump_catalog
+       full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -199,6 +208,9 @@ class TestDatesTablePK(unittest.TestCase):
                                  {"name" : '"our_ts_tz_local"',            "type" : "TIMESTAMP WITH LOCAL TIME ZONE"}],
                      "name" : "CHICKEN"}
        ensure_test_table(table_spec)
+       tap_oracle.dump_catalog = do_not_dump_catalog
+       full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -243,6 +255,8 @@ class TestFloatTablePK(unittest.TestCase):
                                  {"name" : '"our_binary_double"',         "type" : "binary_double"}],
                      "name" : "CHICKEN"}
        ensure_test_table(table_spec)
+       tap_oracle.dump_catalog = do_not_dump_catalog
+       full_table.UPDATE_BOOKMARK_PERIOD = 1000
 
     def test_catalog(self):
         with get_test_connection() as conn:
@@ -291,6 +305,9 @@ class TestFilterSchemas(unittest.TestCase):
                                   {"name" : '"size_number_smallint"', "type" : "smallint"}],
                       "name" : "CHICKEN"}
         ensure_test_table(table_spec)
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
 
     def test_catalog(self):
         with get_test_connection() as conn:

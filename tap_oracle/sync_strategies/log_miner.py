@@ -86,7 +86,7 @@ def verify_table_supplemental_log_level(stream, connection):
    cur.close()
    return result is not None
 
-def sync_tables(conn_config, streams, state):
+def sync_tables(conn_config, streams, state, end_scn):
    connection = orc_db.open_connection(conn_config)
    if not verify_db_supplemental_log_level(connection):
       for stream in streams:
@@ -105,7 +105,6 @@ def sync_tables(conn_config, streams, state):
    cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH24:MI:SS.FFTZH:TZM'""")
 
    start_scn = min([get_bookmark(state, s.tap_stream_id, 'scn') for s in streams])
-   end_scn = fetch_current_scn(conn_config)
    time_extracted = utils.now()
 
    start_logmnr_sql = """BEGIN

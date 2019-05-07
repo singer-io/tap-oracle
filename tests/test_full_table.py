@@ -12,6 +12,7 @@ except ImportError:
     from utils import get_test_connection, ensure_test_table, select_all_of_stream, set_replication_method_for_stream, crud_up_log_miner_fixtures, verify_crud_messages, insert_record, unselect_column
 
 import tap_oracle.sync_strategies.log_miner as log_miner
+import tap_oracle.sync_strategies.full_table as full_table
 import decimal
 import math
 import pytz
@@ -19,6 +20,7 @@ import strict_rfc3339
 import copy
 
 LOGGER = get_logger()
+
 
 CAUGHT_MESSAGES = []
 
@@ -41,6 +43,9 @@ tap_oracle.dump_catalog = do_not_dump_catalog
 class FullTable(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
+        global CAUGHT_MESSAGES
+        CAUGHT_MESSAGES.clear()
         with get_test_connection() as conn:
             cur = conn.cursor()
             table_spec = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
@@ -236,8 +241,6 @@ class FullTable(unittest.TestCase):
                 'our_double_precision' : our_double_precision + 1,
                 'our_date' : '1996-06-07T00:00:00.00+00:00',
                 'NAME_NCHAR' :  'name-nchar II                                                                                                              '})
-
-
             self.assertTrue(math.isnan(CAUGHT_MESSAGES[4].record.get('our_nan')))
             CAUGHT_MESSAGES[4].record.pop('our_nan')
 

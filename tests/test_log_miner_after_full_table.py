@@ -12,10 +12,10 @@ import math
 import pytz
 import strict_rfc3339
 import copy
+import tap_oracle.sync_strategies.full_table as full_table
 
 LOGGER = get_logger()
 
-CAUGHT_MESSAGES = []
 
 def singer_write_message(message):
     CAUGHT_MESSAGES.append(message)
@@ -30,12 +30,16 @@ def expected_record(fixture_row):
 def do_not_dump_catalog(catalog):
     pass
 
-tap_oracle.dump_catalog = do_not_dump_catalog
 
+CAUGHT_MESSAGES = []
 class FullTable(unittest.TestCase):
     maxDiff = None
     def setUp(self):
+        tap_oracle.dump_catalog = do_not_dump_catalog
+        full_table.UPDATE_BOOKMARK_PERIOD = 1000
+
         with get_test_connection() as conn:
+
             cur = conn.cursor()
             table_spec = {"columns": [{"name": "id", "type" : "integer",       "primary_key" : True, "identity" : True},
                                       {"name": '"none_column"',                "type" : "integer"},
