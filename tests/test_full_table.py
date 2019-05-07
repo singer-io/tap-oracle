@@ -236,8 +236,6 @@ class FullTable(unittest.TestCase):
                 'our_double_precision' : our_double_precision + 1,
                 'our_date' : '1996-06-07T00:00:00.00+00:00',
                 'NAME_NCHAR' :  'name-nchar II                                                                                                              '})
-
-
             self.assertTrue(math.isnan(CAUGHT_MESSAGES[4].record.get('our_nan')))
             CAUGHT_MESSAGES[4].record.pop('our_nan')
 
