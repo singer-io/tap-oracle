@@ -1,8 +1,9 @@
 import singer
+from singer import  metadata
 import decimal
 import datetime
 import dateutil.parser
-from singer import  metadata
+import cx_Oracle
 
 def should_sync_column(metadata, field_name):
     field_metadata = metadata.get(('properties', field_name), {})
@@ -23,3 +24,35 @@ def send_schema_message(stream, bookmark_properties):
                                           key_properties=key_properties,
                                           bookmark_properties=bookmark_properties)
     singer.write_message(schema_message)
+
+def row_to_singer_message(stream, row, version, columns, time_extracted):
+   row_to_persist = ()
+   for idx, elem in enumerate(row):
+      property_type = stream.schema.properties[columns[idx]].type
+      if elem is None:
+         row_to_persist += (elem,)
+      elif 'integer' in property_type or property_type == 'integer':
+         integer_representation = int(elem)
+         row_to_persist += (integer_representation,)
+      else:
+         row_to_persist += (elem,)
+
+   rec = dict(zip(columns, row_to_persist))
+
+   return singer.RecordMessage(
+      stream=stream.stream,
+      record=rec,
+      version=version,
+      time_extracted=time_extracted)
+
+def OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
+   if defaultType == cx_Oracle.NUMBER:
+      return cursor.var(decimal.Decimal, arraysize = cursor.arraysize)
+
+
+def prepare_columns_sql(stream, c):
+   column_name = """ "{}" """.format(c)
+   if 'string' in stream.schema.properties[c].type and stream.schema.properties[c].format == 'date-time':
+      return "to_char({})".format(column_name)
+
+   return column_name
