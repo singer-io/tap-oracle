@@ -29,8 +29,6 @@ def sync_table(conn_config, stream, state, desired_columns):
    time_extracted = utils.now()
 
    stream_version = singer.get_bookmark(state, stream.tap_stream_id, 'version')
-   ora_rowscn = singer.get_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN')
-   
    # If there was no bookmark for stream_version, it is the first time
    # this table is being sync'd, so get a new version, write to
    # state
