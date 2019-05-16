@@ -39,7 +39,7 @@ def sync_table(conn_config, stream, state, desired_columns):
                                     'version',
                                     stream_version)
       singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
-       
+
    activate_version_message = singer.ActivateVersionMessage(
       stream=stream.stream,
       version=stream_version)
@@ -52,29 +52,34 @@ def sync_table(conn_config, stream, state, desired_columns):
    escaped_schema  = schema_name
    escaped_table   = stream.table
 
+
+   replication_key = md.get((), {}).get('replication-key')
+   #escaped_replication_key = common.prepare_columns_sql(stream, replication_key)
+   replication_key_value = singer.get_bookmark(state, stream.tap_stream_id, 'replication_key_value')
+   replication_key_sql_datatype = md.get(('properties', replication_key)).get('sql-datatype')
+
    with metrics.record_counter(None) as counter:
-      if ora_rowscn:
-         LOGGER.info("Resuming Incremental replication from ORA_ROWSCN %s", ora_rowscn)
-         select_sql      = """SELECT {}, ORA_ROWSCN
+      if replication_key_value:
+         LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
+         select_sql      = """SELECT {}
                                 FROM {}.{}
-                               WHERE ORA_ROWSCN >= {}
-                               ORDER BY ORA_ROWSCN ASC
+                               WHERE {} >= '{}'
+                               ORDER BY {} ASC
                                 """.format(','.join(escaped_columns),
-                                           escaped_schema,
-                                           escaped_table,
-                                           ora_rowscn)
+                                           escaped_schema, escaped_table,
+                                           replication_key, replication_key_value,
+                                           replication_key)
       else:
-         select_sql      = """SELECT {}, ORA_ROWSCN
+         select_sql      = """SELECT {}
                                 FROM {}.{}
-                               ORDER BY ORA_ROWSCN ASC""".format(','.join(escaped_columns),
-                                                                 escaped_schema,
-                                                                 escaped_table)
+                               ORDER BY {} ASC
+                               """.format(','.join(escaped_columns),
+                                          escaped_schema, escaped_table,
+                                          replication_key)
 
       rows_saved = 0
       LOGGER.info("select %s", select_sql)
       for row in cur.execute(select_sql):
-         ora_rowscn = row[-1]
-         row = row[:-1]
          record_message = common.row_to_singer_message(stream,
                                                        row,
                                                        stream_version,
@@ -82,8 +87,16 @@ def sync_table(conn_config, stream, state, desired_columns):
                                                        time_extracted)
 
          singer.write_message(record_message)
-         state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', ora_rowscn)
          rows_saved = rows_saved + 1
+
+         #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
+         #event worse would be allowing the NULL value to enter into the state
+         if record_message.record[replication_key] is not None:
+            state = singer.write_bookmark(state,
+                                          stream.tap_stream_id,
+                                          'replication_key_value',
+                                          record_message.record[replication_key])
+
          if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
              singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
