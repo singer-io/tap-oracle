@@ -66,7 +66,7 @@ def sync_table(conn_config, stream, state, desired_columns):
          select_sql      = """SELECT {}
                                 FROM {}.{}
                                WHERE {} >= {}
-                               Order BY {} ASC
+                               ORDER BY {} ASC
                                 """.format(','.join(escaped_columns),
                                            escaped_schema, escaped_table,
                                            replication_key, casted_where_clause_arg,
