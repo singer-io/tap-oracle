@@ -1,3 +1,4 @@
+import re
 import singer
 from singer import  metadata
 import decimal
@@ -56,3 +57,15 @@ def prepare_columns_sql(stream, c):
       return "to_char({})".format(column_name)
 
    return column_name
+
+def prepare_where_clause_arg(val, sql_datatype):
+    if sql_datatype == 'NUMBER':
+        return val
+    elif sql_datatype == 'DATE':
+        return "to_date('{}')".format(val)
+    elif re.search('TIMESTAMP\([0-9]\)', sql_datatype):
+        return "to_timestamp('{}')".format(val)
+    elif re.search('TIMESTAMP\([0-9]\) WITH (LOCAL)? TIME ZONE', sql_datatype):
+        return "to_timestamp_tz('{}')".format(val)
+    else:
+        return "'{}'".format(val)
