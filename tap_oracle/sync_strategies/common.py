@@ -63,9 +63,9 @@ def prepare_where_clause_arg(val, sql_datatype):
         return val
     elif sql_datatype == 'DATE':
         return "to_date('{}')".format(val)
+    elif re.search('TIMESTAMP\([0-9]\) WITH (LOCAL )?TIME ZONE', sql_datatype):
+        return "to_timestamp_tz('{}')".format(val)
     elif re.search('TIMESTAMP\([0-9]\)', sql_datatype):
         return "to_timestamp('{}')".format(val)
-    elif re.search('TIMESTAMP\([0-9]\) WITH (LOCAL)? TIME ZONE', sql_datatype):
-        return "to_timestamp_tz('{}')".format(val)
     else:
         return "'{}'".format(val)
