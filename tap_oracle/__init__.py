@@ -359,6 +359,8 @@ def is_selected_via_metadata(stream):
 def do_sync_incremental(conn_config, stream, state, desired_columns):
    md_map = metadata.to_map(stream.metadata)
    replication_key = md_map.get((), {}).get('replication-key')
+   if not replication_key:
+      raise Exception("No replication key selected for key-based incremental replication")
    LOGGER.info("Stream %s is using incremental replication with replication key %s", stream.tap_stream_id, replication_key)
 
    # make sure state has required keys for incremental stream
