@@ -56,8 +56,7 @@ REQUIRED_CONFIG_KEYS = [
     'host',
     'port',
     'user',
-    'password',
-    'default_replication_method'
+    'password'
 ]
 
 DEFAULT_NUMERIC_PRECISION=38
