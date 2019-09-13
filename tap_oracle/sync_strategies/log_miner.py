@@ -132,11 +132,11 @@ def sync_tables(conn_config, streams, state, end_scn):
       schema_name = md_map.get(()).get('schema-name')
       stream_version = get_stream_version(stream.tap_stream_id, state)
       mine_sql = """
-      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND operation in ('INSERT', 'UPDATE', 'DELETE')
+      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} from v$logmnr_contents where table_name = :table_name AND seg_owner = :seg_owner AND operation in ('INSERT', 'UPDATE', 'DELETE')
       """.format(redo_value_sql_clause, undo_value_sql_clause)
       binds = [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
-              [stream.table]
+              [stream.table] + [schema_name]
 
 
       rows_saved = 0
