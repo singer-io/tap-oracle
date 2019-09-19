@@ -543,7 +543,8 @@ def main_impl():
                   'port': args.config['port'],
                   'sid':  args.config['sid']}
 
-
+   if args.config.get('scn_window_size'):
+      log_miner.SCN_WINDOW_SIZE=int(args.config['scn_window_size'])
    if args.discover:
       filter_schemas_prop = args.config.get('filter_schemas')
       filter_schemas = []
