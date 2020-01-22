@@ -69,6 +69,11 @@ def nullable_column(col_name, col_type, pks_for_table):
       return ['null', col_type]
 
 def schema_for_column(c, pks_for_table):
+   # Return Schema(None) to avoid calling lower() on a column with no datatype
+   if c.data_type is None:
+      LOGGER.info('Skipping column %s since it had no datatype', c.column_name)
+      return Schema(None)
+
    data_type = c.data_type.lower()
    result = Schema()
 
@@ -213,7 +218,8 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
 
    for c in cols:
       c_name = c.column_name
-      metadata.write(mdata, ('properties', c_name), 'sql-datatype', c.data_type)
+      # Write the data_type or "None" when the column has no datatype
+      metadata.write(mdata, ('properties', c_name), 'sql-datatype', (c.data_type or "None"))
       if column_schemas[c_name].type is None:
          mdata = metadata.write(mdata, ('properties', c_name), 'inclusion', 'unsupported')
          mdata = metadata.write(mdata, ('properties', c_name), 'selected-by-default', False)
