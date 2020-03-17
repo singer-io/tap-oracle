@@ -110,20 +110,24 @@ class TestIntegerTablePK(unittest.TestCase):
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
-            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 9999999999, 'minimum': -9999999999,
-                                                                                 'type': ['null', 'integer'],
+            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 10000000000, 'minimum': -10000000000,
+                                                                                 'type': ['null', 'number'],
                                                                                  'multipleOf': 10 },
                                                         'size_number_*_0':      {'maximum': 100000000000000000000000000000000000000, 'minimum': -100000000000000000000000000000000000000,
+                                                                                 'exclusiveMaximum': True, 'exclusiveMinimum': True,
                                                                                  'type': ['null', 'number']},
                                                         'size_number_integer':  {'maximum': 100000000000000000000000000000000000000, 'minimum': -100000000000000000000000000000000000000,
+                                                                                 'exclusiveMaximum': True, 'exclusiveMinimum': True,
                                                                                  'type': ['null', 'number']},
-                                                        'size_number_4_0':      {'maximum': 9999, 'minimum': -9999,
+                                                        'size_number_4_0':      {'maximum': 10000, 'minimum': -10000,
                                                                                  'type': ['null', 'number']},
                                                         'size_number_int':      {'maximum': 100000000000000000000000000000000000000, 'minimum': -100000000000000000000000000000000000000,
+                                                                                 'exclusiveMaximum': True, 'exclusiveMinimum': True,
                                                                                  'type': ['null', 'integer']},
                                                         'size_number_smallint': {'maximum': 100000000000000000000000000000000000000, 'minimum': -100000000000000000000000000000000000000,
+                                                                                 'exclusiveMaximum': True, 'exclusiveMinimum': True,
                                                                                  'type': ['null', 'integer']},
-                                                        'SIZE_PK':               {'maximum': 10000, 'minimum': -10000,
+                                                        'SIZE_PK':               {'maximum': 10000, 'minimum': -10000, 'exclusiveMaximum': True, 'exclusiveMinimum': True,
                                                                                   'type': ['number']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
@@ -167,8 +171,8 @@ class TestDecimalPK(unittest.TestCase):
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_number': {'maximum': 99999999999999999999999999999999999999,
-                                                                       'minimum': -99999999999999999999999999999999999999,
+            self.assertEqual({'schema': {'properties': {'our_number': {'maximum': 100000000000000000000000000000000000000,
+                                                                       'minimum': -100000000000000000000000000000000000000,
                                                                        'type': [ 'number']},
                                                         'our_number_10_2': {'exclusiveMaximum': True,
                                                                             'exclusiveMinimum': True,
