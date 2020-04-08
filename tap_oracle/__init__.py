@@ -80,7 +80,16 @@ def schema_for_column(c, pks_for_table):
    numeric_scale = c.numeric_scale or DEFAULT_NUMERIC_SCALE
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
-   if data_type == 'number':
+   if data_type == 'number' and numeric_scale <= 0:
+      result.type = nullable_column(c.column_name, 'integer', pks_for_table)
+      result.minimum = -1 * (10**numeric_precision - 1)
+      result.maximum = (10**numeric_precision - 1)
+
+      if numeric_scale < 0:
+         result.multipleOf = -10 * numeric_scale
+      return result
+
+   elif data_type == 'number':
       result.type = nullable_column(c.column_name, 'number', pks_for_table)
 
       result.exclusiveMaximum = True
