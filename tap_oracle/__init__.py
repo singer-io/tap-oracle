@@ -81,7 +81,7 @@ def schema_for_column(c, pks_for_table):
    data_type = c.data_type.lower()
    result = Schema()
 
-   numeric_scale = c.numeric_scale or DEFAULT_NUMERIC_SCALE
+   numeric_scale = c.numeric_scale if c.numeric_scale is not None else DEFAULT_NUMERIC_SCALE
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
    if data_type == 'number' and numeric_scale <= 0:
