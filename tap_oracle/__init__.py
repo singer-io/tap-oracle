@@ -60,7 +60,11 @@ REQUIRED_CONFIG_KEYS = [
 ]
 
 DEFAULT_NUMERIC_PRECISION=38
-DEFAULT_NUMERIC_SCALE=0
+
+# Experimentally, we observed 6 digits to the right of the decimal place
+# as maximum scale stored when not specified (e.g., NUMERIC(*) or NUMERIC
+# types)
+DEFAULT_NUMERIC_SCALE=6
 
 def nullable_column(col_name, col_type, pks_for_table):
    if col_name in pks_for_table:
@@ -82,8 +86,6 @@ def schema_for_column(c, pks_for_table):
 
    if data_type == 'number' and numeric_scale <= 0:
       result.type = nullable_column(c.column_name, 'integer', pks_for_table)
-      result.minimum = -1 * (10**numeric_precision - 1)
-      result.maximum = (10**numeric_precision - 1)
 
       if numeric_scale < 0:
          result.multipleOf = -10 * numeric_scale
@@ -91,12 +93,8 @@ def schema_for_column(c, pks_for_table):
 
    elif data_type == 'number':
       result.type = nullable_column(c.column_name, 'number', pks_for_table)
-
-      result.exclusiveMaximum = True
-      result.maximum = 10 ** (numeric_precision - numeric_scale)
       result.multipleOf = 10 ** (0 - numeric_scale)
-      result.exclusiveMinimum = True
-      result.minimum = -10 ** (numeric_precision - numeric_scale)
+
       return result
 
    elif data_type == 'date' or data_type.startswith("timestamp"):
