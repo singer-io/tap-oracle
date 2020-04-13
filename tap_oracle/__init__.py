@@ -64,7 +64,7 @@ DEFAULT_NUMERIC_PRECISION=38
 # Experimentally, we observed 6 digits to the right of the decimal place
 # as maximum scale stored when not specified (e.g., NUMERIC(*) or NUMERIC
 # types)
-DEFAULT_NUMERIC_SCALE=6
+DEFAULT_NUMERIC_SCALE=38
 
 def nullable_column(col_name, col_type, pks_for_table):
    if col_name in pks_for_table:
