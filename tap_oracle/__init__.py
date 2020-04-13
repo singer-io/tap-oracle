@@ -61,9 +61,9 @@ REQUIRED_CONFIG_KEYS = [
 
 DEFAULT_NUMERIC_PRECISION=38
 
-# Experimentally, we observed 6 digits to the right of the decimal place
-# as maximum scale stored when not specified (e.g., NUMERIC(*) or NUMERIC
-# types)
+# Default scale seems to vary by Oracle version. We've observed 12c
+# returning 6 digits and 11g returning 14 places. Setting max at 38 to
+# align with the Singer libraries' maximum.
 DEFAULT_NUMERIC_SCALE=38
 
 def nullable_column(col_name, col_type, pks_for_table):
