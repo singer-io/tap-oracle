@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+ * Increase default numeric scale from `6` to `38` [#24](https://github.com/singer-io/tap-oracle/pull/24)
+
 ## 1.0.0
  * Backwards incompatible change to the way that data types are discovered and parsed [#22](https://github.com/singer-io/tap-oracle/pull/22)
    * Oracle numeric types with a null scale (`NUMBER` and `NUMBER(*)`) will now be correctly discovered as floating point types rather than integers.
