@@ -109,8 +109,7 @@ class TestIntegerTablePK(unittest.TestCase):
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
-            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'multipleOf': 10,
-                                                                                 'type': ['null', 'integer']},
+            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'type': ['null', 'integer']},
                                                         'size_number_*_0':      {'type': ['null', 'integer']},
                                                         'size_number_integer':  {'type': ['null', 'integer']},
                                                         'size_number_4':      {'type': ['null', 'integer']},
@@ -161,12 +160,12 @@ class TestDecimalPK(unittest.TestCase):
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_number': {'multipleOf': 1e-38,
-                                                                       'type': ['number']},
-                                                        'our_number_10_2': {'multipleOf': 0.01,
-                                                                            'type': ['null', 'number']},
-                                                        'our_number_38_4': {'multipleOf': 0.0001,
-                                                                            'type': ['null', 'number']}},
+            self.assertEqual({'schema': {'properties': {'our_number': {'format': 'decimal',
+                                                                       'type': ['string']},
+                                                        'our_number_10_2': {'format': 'decimal',
+                                                                            'type': ['null', 'string']},
+                                                        'our_number_38_4': {'format': 'decimal',
+                                                                            'type': ['null', 'string']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
@@ -251,12 +250,12 @@ class TestFloatTablePK(unittest.TestCase):
             stream_dict = chicken_streams[0].to_dict()
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['number'],
-                                                                                    'multipleOf': 1e-38},
-                                                        'our_double_precision':    {'type': ['null', 'number'],
-                                                                                    'multipleOf': 1e-38},
-                                                        'our_real':                {'type': ['null', 'number'],
-                                                                                    'multipleOf': 1e-18},
+            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['string'],
+                                                                                    'format': 'decimal'},
+                                                        'our_double_precision':    {'type': ['null', 'string'],
+                                                                                    'format': 'decimal'},
+                                                        'our_real':                {'type': ['null', 'string'],
+                                                                                    'format': 'decimal'},
                                                         'our_binary_float':        {'type': ['null', 'number']},
                                                         'our_binary_double':       {'type': ['null', 'number']}},
                                          'type': 'object'},
