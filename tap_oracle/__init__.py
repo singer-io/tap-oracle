@@ -84,8 +84,6 @@ def schema_for_column(c, pks_for_table):
    if data_type == 'number' and numeric_scale is not None and numeric_scale <= 0:
       result.type = nullable_column(c.column_name, 'integer', pks_for_table)
 
-      if numeric_scale < 0:
-         result.multipleOf = -10 * numeric_scale
       return result
 
    elif data_type == 'number':
