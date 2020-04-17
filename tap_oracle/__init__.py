@@ -81,7 +81,7 @@ def schema_for_column(c, pks_for_table):
    # Precision is always non-zero and defaults to 38 digits
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
-   if data_type == 'number' and numeric_scale <= 0:
+   if data_type == 'number' and numeric_scale is not None and numeric_scale <= 0:
       result.type = nullable_column(c.column_name, 'integer', pks_for_table)
 
       if numeric_scale < 0:
