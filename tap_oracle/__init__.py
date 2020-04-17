@@ -61,11 +61,6 @@ REQUIRED_CONFIG_KEYS = [
 
 DEFAULT_NUMERIC_PRECISION=38
 
-# Default scale seems to vary by Oracle version. We've observed 12c
-# returning 6 digits and 11g returning 14 places. Setting max at 38 to
-# align with the Singer libraries' maximum.
-DEFAULT_NUMERIC_SCALE=38
-
 def nullable_column(col_name, col_type, pks_for_table):
    if col_name in pks_for_table:
       return  [col_type]
@@ -82,7 +77,7 @@ def schema_for_column(c, pks_for_table):
    result = Schema()
 
    # Scale of None indicates default of 6 digits
-   numeric_scale = c.numeric_scale if c.numeric_scale is not None else DEFAULT_NUMERIC_SCALE
+   numeric_scale = c.numeric_scale
    # Precision is always non-zero and defaults to 38 digits
    numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
@@ -94,8 +89,11 @@ def schema_for_column(c, pks_for_table):
       return result
 
    elif data_type == 'number':
-      result.type = nullable_column(c.column_name, 'number', pks_for_table)
-      result.multipleOf = 10 ** (0 - numeric_scale)
+      # NB: Due to scale and precision variations in Oracle version, and
+      #     among numeric types, we're using a custom `decimal` string
+      #     formatter for this, with no opinion on scale/precision.
+      result.type = nullable_column(c.column_name, 'string', pks_for_table)
+      result.format = 'decimal'
 
       return result
 
@@ -121,17 +119,10 @@ def schema_for_column(c, pks_for_table):
    #instead they are represented as decimals, but despite this
    #it appears we can say nothing about their max or min
 
-   #"real"
-   elif data_type == 'float' and c.numeric_precision == 63:
-      result.type = nullable_column(c.column_name, 'number', pks_for_table)
-      result.multipleOf = 10 ** -18
-      return result
-
-   #"float", "double_precision",
+   #"float", "double_precision", "real"
    elif data_type in ['float', 'double_precision']:
-
-      result.type = nullable_column(c.column_name, 'number', pks_for_table)
-      result.multipleOf = 10 ** -38
+      result.type = nullable_column(c.column_name, 'string', pks_for_table)
+      result.format = 'decimal'
       return result
 
    return Schema(None)
