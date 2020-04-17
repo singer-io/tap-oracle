@@ -97,14 +97,14 @@ class MineDecimals(unittest.TestCase):
             insert_rec_1 = CAUGHT_MESSAGES[1].record
             self.assertIsNotNone(insert_rec_1.get('scn'))
             insert_rec_1.pop('scn')
-            self.assertEqual(insert_rec_1, {'our_number_38_4': decimal.Decimal('99999999999999999.9999'), 'our_number': 1, 'our_number_10_2': decimal.Decimal('100.11'), '_sdc_deleted_at': None})
+            self.assertEqual(insert_rec_1, {'our_number_38_4': '99999999999999999.9999', 'our_number': '1', 'our_number_10_2': '100.11', '_sdc_deleted_at': None})
 
 
             #verify UPDATE
             update_rec = CAUGHT_MESSAGES[5].record
             self.assertIsNotNone(update_rec.get('scn'))
             update_rec.pop('scn')
-            self.assertEqual(update_rec, {'our_number_38_4': decimal.Decimal('100000000000000004.9999'), 'our_number': 1, 'our_number_10_2': decimal.Decimal('105.11'), '_sdc_deleted_at': None})
+            self.assertEqual(update_rec, {'our_number_38_4': '100000000000000004.9999', 'our_number': '1', 'our_number_10_2': '105.11', '_sdc_deleted_at': None})
 
             #verify first DELETE message
             delete_rec = CAUGHT_MESSAGES[9].record
@@ -113,9 +113,9 @@ class MineDecimals(unittest.TestCase):
             delete_rec.pop('scn')
             delete_rec.pop('_sdc_deleted_at')
             self.assertEqual(delete_rec,
-                             {'our_number_38_4': decimal.Decimal('100000000000000004.9999'),
-                              'our_number': 1,
-                              'our_number_10_2': decimal.Decimal('105.11')})
+                             {'our_number_38_4': '100000000000000004.9999',
+                              'our_number': '1',
+                              'our_number_10_2': '105.11'})
 
 
             #verify second DELETE message
@@ -125,9 +125,9 @@ class MineDecimals(unittest.TestCase):
             delete_rec_2.pop('scn')
             delete_rec_2.pop('_sdc_deleted_at')
             self.assertEqual(delete_rec_2,
-                             {'our_number_38_4': decimal.Decimal('100000000000000004.9999'),
-                              'our_number': 2,
-                              'our_number_10_2': decimal.Decimal('105.11')})
+                             {'our_number_38_4': '100000000000000004.9999',
+                              'our_number': '2',
+                              'our_number_10_2': '105.11'})
 
 
 
