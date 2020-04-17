@@ -59,8 +59,6 @@ REQUIRED_CONFIG_KEYS = [
     'password'
 ]
 
-DEFAULT_NUMERIC_PRECISION=38
-
 def nullable_column(col_name, col_type, pks_for_table):
    if col_name in pks_for_table:
       return  [col_type]
@@ -78,8 +76,6 @@ def schema_for_column(c, pks_for_table):
 
    # Scale of None indicates default of 6 digits
    numeric_scale = c.numeric_scale
-   # Precision is always non-zero and defaults to 38 digits
-   numeric_precision = c.numeric_precision or DEFAULT_NUMERIC_PRECISION
 
    if data_type == 'number' and numeric_scale is not None and numeric_scale <= 0:
       result.type = nullable_column(c.column_name, 'integer', pks_for_table)
