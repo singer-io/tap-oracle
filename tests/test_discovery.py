@@ -160,11 +160,11 @@ class TestDecimalPK(unittest.TestCase):
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_number': {'format': 'decimal',
+            self.assertEqual({'schema': {'properties': {'our_number': {'format': 'singer.decimal',
                                                                        'type': ['string']},
-                                                        'our_number_10_2': {'format': 'decimal',
+                                                        'our_number_10_2': {'format': 'singer.decimal',
                                                                             'type': ['null', 'string']},
-                                                        'our_number_38_4': {'format': 'decimal',
+                                                        'our_number_38_4': {'format': 'singer.decimal',
                                                                             'type': ['null', 'string']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
@@ -251,11 +251,11 @@ class TestFloatTablePK(unittest.TestCase):
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
             self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['string'],
-                                                                                    'format': 'decimal'},
+                                                                                    'format': 'singer.decimal'},
                                                         'our_double_precision':    {'type': ['null', 'string'],
-                                                                                    'format': 'decimal'},
+                                                                                    'format': 'singer.decimal'},
                                                         'our_real':                {'type': ['null', 'string'],
-                                                                                    'format': 'decimal'},
+                                                                                    'format': 'singer.decimal'},
                                                         'our_binary_float':        {'type': ['null', 'number']},
                                                         'our_binary_double':       {'type': ['null', 'number']}},
                                          'type': 'object'},

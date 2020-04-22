@@ -33,7 +33,7 @@ def row_to_singer_message(stream, row, version, columns, time_extracted):
         property_format = stream.schema.properties[columns[idx]].format
         if elem is None:
             row_to_persist += (elem,)
-        elif ('string' in property_type or property_type == 'string') and property_format == 'decimal':
+        elif ('string' in property_type or property_type == 'string') and property_format == 'singer.decimal':
             row_to_persist += (str(elem),)
         elif 'integer' in property_type or property_type == 'integer':
             integer_representation = int(elem)

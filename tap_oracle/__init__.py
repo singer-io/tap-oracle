@@ -84,10 +84,10 @@ def schema_for_column(c, pks_for_table):
 
    elif data_type == 'number':
       # NB: Due to scale and precision variations in Oracle version, and
-      #     among numeric types, we're using a custom `decimal` string
+      #     among numeric types, we're using a custom `singer.decimal` string
       #     formatter for this, with no opinion on scale/precision.
       result.type = nullable_column(c.column_name, 'string', pks_for_table)
-      result.format = 'decimal'
+      result.format = 'singer.decimal'
 
       return result
 
@@ -116,7 +116,7 @@ def schema_for_column(c, pks_for_table):
    #"float", "double_precision", "real"
    elif data_type in ['float', 'double_precision']:
       result.type = nullable_column(c.column_name, 'string', pks_for_table)
-      result.format = 'decimal'
+      result.format = 'singer.decimal'
       return result
 
    return Schema(None)
