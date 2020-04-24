@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.0
+ * Values with Decimal precision will now be written as strings with a custom `singer.decimal` format in order to maintain that precision through the pipeline [#26](https://github.com/singer-io/tap-oracle/pull/26)
+
 ## 1.0.1
  * Increase default numeric scale from `6` to `38` [#24](https://github.com/singer-io/tap-oracle/pull/24)
 
