@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+ * Set a maximum length on Singer Decimals, where a decimal past the cap is normalized via `decimal.normalize()` [#28](https://github.com/singer-io/tap-oracle/pull/28)
+
 ## 1.1.0
  * Values with Decimal precision will now be written as strings with a custom `singer.decimal` format in order to maintain that precision through the pipeline [#26](https://github.com/singer-io/tap-oracle/pull/26)
 
