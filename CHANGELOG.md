@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.2
+ * Log value of mine_sql [#30](https://github.com/singer-io/tap-oracle/pull/30)
+
 ## 1.1.1
  * Set a maximum length on Singer Decimals, where a decimal past the cap is normalized via `decimal.normalize()` [#28](https://github.com/singer-io/tap-oracle/pull/28)
 
