@@ -161,6 +161,7 @@ def sync_tables_logminer(cur, streams, state, start_scn, end_scn):
       with metrics.record_counter(None) as counter:
          LOGGER.info("Examing log for table %s", stream.tap_stream_id)
          common.send_schema_message(stream, ['lsn'])
+         LOGGER.info("mine_sql=%s", mine_sql)
          for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
