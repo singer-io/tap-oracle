@@ -7,7 +7,9 @@ def fully_qualified_column_name(schema, table, column):
     return '"{}"."{}"."{}"'.format(schema, table, column)
 
 def make_dsn(config):
-   return cx_Oracle.makedsn(config["host"], config["port"], config["sid"])
+    return '''(DESCRIPTION=(ENABLE=BROKEN)(ADDRESS=(PROTOCOL=TCP)(HOST={})(PORT={}))(CONNECT_DATA=(SID={})))'''.format(config['host'], config['port'], config['sid'])
+
+    #return cx_Oracle.makedsn(config["host"], config["port"], config["sid"])
 
 def open_connection(config):
     LOGGER.info("dsn: %s", make_dsn(config))
