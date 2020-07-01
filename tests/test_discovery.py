@@ -67,9 +67,7 @@ class TestStringTableWithPK(unittest.TestCase):
                               {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2', 'selected-by-default': True}, 'breadcrumb': ('properties', 'name-varchar2-explicit-byte')},
                               {'metadata': {'inclusion': 'available', 'sql-datatype' : 'VARCHAR2', 'selected-by-default': True}, 'breadcrumb': ('properties', 'name-varchar2-explicit-char')}])
 
-            self.assertEqual({'properties': {'ID':                      {'type': ['integer'],
-                                                                         'maximum': 99999999999999999999999999999999999999,
-                                                                         'minimum': -99999999999999999999999999999999999999},
+            self.assertEqual({'properties': {'ID':                      {'type': ['integer']},
                                              'name-char-explicit-byte': {'type': ['null', 'string']},
                                              'name-char-explicit-char': {'type': ['null', 'string'], 'maxLength': 250},
 
@@ -94,6 +92,7 @@ class TestIntegerTablePK(unittest.TestCase):
                                  {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
                                  {"name" : '"size_number_integer"',  "type" : "integer"},
                                  {"name" : '"size_number_int"',      "type" : "int"},
+                                 {"name" : '"size_number_4"',        "type" : "number(4)"},
                                  {"name" : '"size_number_smallint"', "type" : "smallint"}],
                      "name" : "CHICKEN"}
        ensure_test_table(table_spec)
@@ -110,21 +109,14 @@ class TestIntegerTablePK(unittest.TestCase):
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
 
-            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'maximum': 9999999999, 'minimum': -9999999999,
-                                                                                 'type': ['null', 'integer'],
-                                                                                 'multipleOf': 10 },
-                                                        'size_number_*_0':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
-                                                                                 'type': ['null', 'integer']},
-                                                        'size_number_integer':  {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
-                                                                                 'type': ['null', 'integer']},
-                                                        'size_number_4_0':      {'maximum': 9999, 'minimum': -9999,
-                                                                                 'type': ['null', 'integer']},
-                                                        'size_number_int':      {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
-                                                                                 'type': ['null', 'integer']},
-                                                        'size_number_smallint': {'maximum': 99999999999999999999999999999999999999, 'minimum': -99999999999999999999999999999999999999,
-                                                                                 'type': ['null', 'integer']},
-                                                        'SIZE_PK':               {'maximum': 9999, 'minimum': -9999,
-                                                                                  'type': ['integer']}},
+            self.assertEqual({'schema': {'properties': {'size_number_10_-1':    {'type': ['null', 'integer']},
+                                                        'size_number_*_0':      {'type': ['null', 'integer']},
+                                                        'size_number_integer':  {'type': ['null', 'integer']},
+                                                        'size_number_4':      {'type': ['null', 'integer']},
+                                                        'size_number_4_0':      {'type': ['null', 'integer']},
+                                                        'size_number_int':      {'type': ['null', 'integer']},
+                                                        'size_number_smallint': {'type': ['null', 'integer']},
+                                                        'SIZE_PK':              {'type': ['integer']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
@@ -138,6 +130,7 @@ class TestIntegerTablePK(unittest.TestCase):
                                            {'metadata': {'inclusion': 'automatic', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'SIZE_PK')},
                                            {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_*_0')},
                                            {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_10_-1')},
+                                           {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_4')},
                                            {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_4_0')},
                                            {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_int')},
                                            {'metadata': {'inclusion': 'available', 'sql-datatype': 'NUMBER', 'selected-by-default': True}, 'breadcrumb': ('properties', 'size_number_integer')},
@@ -167,21 +160,12 @@ class TestDecimalPK(unittest.TestCase):
             self.assertEqual(len(chicken_streams), 1)
             stream_dict = chicken_streams[0].to_dict()
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_number': {'maximum': 99999999999999999999999999999999999999,
-                                                                       'minimum': -99999999999999999999999999999999999999,
-                                                                       'type': [ 'integer']},
-                                                        'our_number_10_2': {'exclusiveMaximum': True,
-                                                                            'exclusiveMinimum': True,
-                                                                            'maximum': 100000000,
-                                                                            'minimum': -100000000,
-                                                                            'multipleOf': 0.01,
-                                                                            'type': ['null', 'number']},
-                                                        'our_number_38_4': {'exclusiveMaximum': True,
-                                                                             'exclusiveMinimum': True,
-                                                                             'maximum': 10000000000000000000000000000000000,
-                                                                             'minimum': -10000000000000000000000000000000000,
-                                                                             'multipleOf': 0.0001,
-                                                                             'type': ['null', 'number']}},
+            self.assertEqual({'schema': {'properties': {'our_number': {'format': 'singer.decimal',
+                                                                       'type': ['string']},
+                                                        'our_number_10_2': {'format': 'singer.decimal',
+                                                                            'type': ['null', 'string']},
+                                                        'our_number_38_4': {'format': 'singer.decimal',
+                                                                            'type': ['null', 'string']}},
                                          'type': 'object'},
                               'stream': 'CHICKEN',
                               'table_name': 'CHICKEN',
@@ -266,12 +250,12 @@ class TestFloatTablePK(unittest.TestCase):
             stream_dict = chicken_streams[0].to_dict()
 
             stream_dict.get('metadata').sort(key=lambda md: md['breadcrumb'])
-            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['number'],
-                                                                                    'multipleOf': 1e-38},
-                                                        'our_double_precision':    {'type': ['null', 'number'],
-                                                                                    'multipleOf': 1e-38},
-                                                        'our_real':                {'type': ['null', 'number'],
-                                                                                    'multipleOf': 1e-18},
+            self.assertEqual({'schema': {'properties': {'our_float':               {'type': ['string'],
+                                                                                    'format': 'singer.decimal'},
+                                                        'our_double_precision':    {'type': ['null', 'string'],
+                                                                                    'format': 'singer.decimal'},
+                                                        'our_real':                {'type': ['null', 'string'],
+                                                                                    'format': 'singer.decimal'},
                                                         'our_binary_float':        {'type': ['null', 'number']},
                                                         'our_binary_double':       {'type': ['null', 'number']}},
                                          'type': 'object'},

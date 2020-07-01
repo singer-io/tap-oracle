@@ -53,8 +53,12 @@ class FullTable(unittest.TestCase):
                                       {"name": "no_sync",                      "type" : "integer"},
                                       {"name": "bad_column",                   "type" : "long"},
 
+                                      {"name" : '"size_number"',          "type" : "number"},
+                                      {"name" : '"size_number_*"',        "type" : "number(*)"},
+                                      {"name" : '"size_number_4"',        "type" : "number(4)"},
                                       {"name" : '"size_number_4_0"',      "type" : "number(4,0)"},
                                       {"name" : '"size_number_*_0"',      "type" : "number(*,0)"},
+                                      {"name" : '"size_number_*_38"',      "type" : "number(*,38)"},
                                       {"name" : '"size_number_10_-1"',    "type" : "number(10,-1)"},
                                       {"name" : '"size_number_integer"',  "type" : "integer"},
                                       {"name" : '"size_number_int"',      "type" : "int"},
@@ -122,12 +126,16 @@ class FullTable(unittest.TestCase):
             rec_1 = {
                 '"none_column"'         : None,
                 'NO_SYNC'               : 666, #should not sync this column
-                '"size_number_4_0"'     : 100,
-                '"size_number_*_0"'     : 200,
-                '"size_number_10_-1"'   : 311,
-                '"size_number_integer"' : 400,
-                '"size_number_int"'     : 500,
-                '"size_number_smallint"': 50000,
+                '"size_number"'         : 1E-6,
+                '"size_number_*"'       : 100.12345,
+                '"size_number_4"'       : 100.12345,
+                '"size_number_4_0"'     : 100.12345,
+                '"size_number_*_0"'     : 2 ** 128, # 39 Decimal Places in pow(2)
+                '"size_number_*_38"'    : 1E-6,
+                '"size_number_10_-1"'   : 311.12345,
+                '"size_number_integer"' : 400.12345,
+                '"size_number_int"'     : 500.12345,
+                '"size_number_smallint"': 50000.12345,
 
                 '"our_number_10_2"'     : decimal.Decimal('100.11'),
                 '"our_number_38_4"'     : decimal.Decimal('99999999999999999.99991'),
@@ -191,19 +199,23 @@ class FullTable(unittest.TestCase):
 
             expected_rec_1 = {'ID'                  : 1,
                               'none_column'         : None,
+                              'size_number'         : '0.000001',
+                              'size_number_*'       : '100.12345',
+                              'size_number_4'       : 100,
                               'size_number_4_0'     : 100,
-                              'size_number_*_0'     : 200,
+                              'size_number_*_0'     : 2 ** 128,
+                              'size_number_*_38'    : '0.000001',
                               'size_number_10_-1'   : 310,
                               'size_number_integer' : 400,
                               'size_number_int'     : 500,
                               'size_number_smallint': 50000,
 
-                              'our_number_10_2'     : decimal.Decimal('100.11'),
-                              'our_number_38_4'     : decimal.Decimal('99999999999999999.9999'),
+                              'our_number_10_2'     : '100.11',
+                              'our_number_38_4'     : '99999999999999999.9999',
 
-                              'our_double_precision': decimal.Decimal('1234567.8901234567890123456789012345679'),
-                              'our_float'           : decimal.Decimal('1234567.8901234567890123456789012345679'),
-                              'our_real'            : decimal.Decimal('1234567.890123456789'),
+                              'our_double_precision': '1234567.8901234567890123456789012345679',
+                              'our_float'           : '1234567.8901234567890123456789012345679',
+                              'our_real'            : '1234567.890123456789',
 
 
 
@@ -235,10 +247,10 @@ class FullTable(unittest.TestCase):
 
             expected_rec_2 = expected_rec_1
             expected_rec_2.update({
-                'ID': decimal.Decimal(2),
-                'size_number_4_0' : decimal.Decimal('101'),
-                'our_number_10_2' : decimal.Decimal('101.11') + 1,
-                'our_double_precision' : our_double_precision + 1,
+                'ID': 2,
+                'size_number_4_0' : 101,
+                'our_number_10_2' : '102.11',
+                'our_double_precision' : '1234568.890123456789012345679',
                 'our_date' : '1996-06-07T00:00:00.00+00:00',
                 'NAME_NCHAR' :  'name-nchar II                                                                                                              '})
             self.assertTrue(math.isnan(CAUGHT_MESSAGES[4].record.get('our_nan')))

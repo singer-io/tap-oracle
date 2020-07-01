@@ -121,10 +121,11 @@ class MineFloats(unittest.TestCase):
             self.assertTrue(math.isnan(insert_rec_1.get('our_nan')))
             insert_rec_1.pop('our_nan')
 
+
             self.assertEqual(insert_rec_1, {
-                                 'our_float': decimal.Decimal('1.0'),
-                                 'our_double_precision': our_fake_float,
-                                 'our_real': our_fake_float,
+                                 'our_float': '1',
+                                 'our_double_precision': str(our_fake_float),
+                                 'our_real': str(our_fake_float),
                                  'our_binary_float': 1234567.88, #weird
                                  'our_binary_double': 1234567.890123,
                                  '_sdc_deleted_at': None})
@@ -145,9 +146,9 @@ class MineFloats(unittest.TestCase):
             self.assertEqual(update_rec, {'our_binary_double': 1234572.890123,
                                           '_sdc_deleted_at': None,
                                           'our_binary_float': 1234572.88,
-                                          'our_float': decimal.Decimal('1'),
-                                          'our_double_precision': decimal.Decimal('1234572.8901234'),
-                                          'our_real': decimal.Decimal('1234572.8901234')})
+                                          'our_float': '1',
+                                          'our_double_precision': '1234572.8901234',
+                                          'our_real': '1234572.8901234'})
 
             #verify first DELETE message
             delete_rec = CAUGHT_MESSAGES[9].record
@@ -168,9 +169,9 @@ class MineFloats(unittest.TestCase):
             self.assertEqual(delete_rec,
                              {'our_binary_double': 1234572.890123,
                               'our_binary_float': 1234572.88,
-                              'our_float': decimal.Decimal('1'),
-                              'our_double_precision': decimal.Decimal('1234572.8901234'),
-                              'our_real': decimal.Decimal('1234572.8901234')})
+                              'our_float': '1',
+                              'our_double_precision': '1234572.8901234',
+                              'our_real': '1234572.8901234'})
 
             #verify second DELETE message
             delete_rec_2 = CAUGHT_MESSAGES[11].record
@@ -192,9 +193,9 @@ class MineFloats(unittest.TestCase):
             self.assertEqual(delete_rec_2,
                              {'our_binary_double': 1234572.890123,
                               'our_binary_float': 1234572.88,
-                              'our_float': decimal.Decimal('2'),
-                              'our_double_precision': decimal.Decimal('1234572.8901234'),
-                              'our_real': decimal.Decimal('1234572.8901234')})
+                              'our_float': '2',
+                              'our_double_precision': '1234572.8901234',
+                              'our_real': '1234572.8901234'})
 
 
 

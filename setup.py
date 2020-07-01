@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='tap-oracle',
-      version='0.2.1',
+      version='1.1.2',
       description='Singer.io tap for extracting data from Oracle',
       author='Stitch',
       url='https://singer.io',

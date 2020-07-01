@@ -18,6 +18,8 @@ LOGGER = singer.get_logger()
 
 UPDATE_BOOKMARK_PERIOD = 1000
 
+SCN_WINDOW_SIZE = None
+
 def fetch_current_scn(conn_config):
    connection = orc_db.open_connection(conn_config)
    cur = connection.cursor()
@@ -86,7 +88,7 @@ def verify_table_supplemental_log_level(stream, connection):
    cur.close()
    return result is not None
 
-def sync_tables(conn_config, streams, state, end_scn):
+def sync_tables(conn_config, streams, state, end_scn, scn_window_size = None):
    connection = orc_db.open_connection(conn_config)
    if not verify_db_supplemental_log_level(connection):
       for stream in streams:
@@ -96,15 +98,30 @@ def sync_tables(conn_config, streams, state, end_scn):
       Please run: ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
             """.format(stream.tap_stream_id))
 
-
-
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
    cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS."00+00:00"'""")
    cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD"T"HH24:MI:SSXFF"+00:00"'""")
    cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH24:MI:SS.FFTZH:TZM'""")
 
-   start_scn = min([get_bookmark(state, s.tap_stream_id, 'scn') for s in streams])
+   start_scn_window = min([get_bookmark(state, s.tap_stream_id, 'scn') for s in streams])
+
+   while start_scn_window < end_scn:
+      stop_scn_window = end_scn
+      if SCN_WINDOW_SIZE:
+         stop_scn_window = start_scn_window + SCN_WINDOW_SIZE
+         if stop_scn_window > end_scn:
+            stop_scn_window = end_scn
+
+      state = sync_tables_logminer(cur, streams, state, start_scn_window, stop_scn_window)
+
+      start_scn_window = stop_scn_window
+
+   cur.close()
+   connection.close()
+
+def sync_tables_logminer(cur, streams, state, start_scn, end_scn):
+
    time_extracted = utils.now()
 
    start_logmnr_sql = """BEGIN
@@ -144,6 +161,7 @@ def sync_tables(conn_config, streams, state, end_scn):
       with metrics.record_counter(None) as counter:
          LOGGER.info("Examing log for table %s", stream.tap_stream_id)
          common.send_schema_message(stream, ['lsn'])
+         LOGGER.info("mine_sql=%s", mine_sql)
          for op, redo, scn, cscn, commit_ts, *col_vals in cur.execute(mine_sql, binds):
             redo_vals = col_vals[0:len(desired_columns)]
             undo_vals = col_vals[len(desired_columns):]
@@ -173,6 +191,4 @@ def sync_tables(conn_config, streams, state, end_scn):
       state = singer.write_bookmark(state, s.tap_stream_id, 'scn', end_scn)
       singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
 
-   cur.close()
-   connection.close()
    return state
