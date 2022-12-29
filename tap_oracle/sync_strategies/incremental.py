@@ -17,7 +17,7 @@ LOGGER = singer.get_logger()
 UPDATE_BOOKMARK_PERIOD = 1000
 
 
-def sync_table(conn_config, stream, state, desired_columns):
+def sync_table(conn_config, stream, state, desired_columns, incremental_limit):
    connection = orc_db.open_connection(conn_config)
    connection.outputtypehandler = common.OutputTypeHandler
 
@@ -58,55 +58,67 @@ def sync_table(conn_config, stream, state, desired_columns):
    replication_key_value = singer.get_bookmark(state, stream.tap_stream_id, 'replication_key_value')
    replication_key_sql_datatype = md.get(('properties', replication_key)).get('sql-datatype')
 
-   with metrics.record_counter(None) as counter:
-      if replication_key_value:
-         LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
-         casted_where_clause_arg = common.prepare_where_clause_arg(replication_key_value, replication_key_sql_datatype)
+   iterate_limit = True
+   while iterate_limit:
+      with metrics.record_counter(None) as counter:
+         if replication_key_value:
+            LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
+            casted_where_clause_arg = common.prepare_where_clause_arg(replication_key_value, replication_key_sql_datatype)
 
-         select_sql      = """SELECT {}
-                                FROM {}.{}
-                               WHERE {} >= {}
-                               ORDER BY {} ASC
-                                """.format(','.join(escaped_columns),
-                                           escaped_schema, escaped_table,
-                                           replication_key, casted_where_clause_arg,
-                                           replication_key)
-      else:
-         select_sql      = """SELECT {}
-                                FROM {}.{}
-                               ORDER BY {} ASC
-                               """.format(','.join(escaped_columns),
-                                          escaped_schema, escaped_table,
-                                          replication_key)
+            select_sql      = """SELECT {}
+                                 FROM {}.{}
+                                 WHERE {} >= {}
+                                 ORDER BY {} ASC
+                                 """.format(','.join(escaped_columns),
+                                            escaped_schema, escaped_table,
+                                            replication_key, casted_where_clause_arg,
+                                            replication_key)
 
-      rows_saved = 0
-      LOGGER.info("select %s", select_sql)
-      for row in cur.execute(select_sql):
-         record_message = common.row_to_singer_message(stream,
-                                                       row,
-                                                       stream_version,
-                                                       desired_columns,
-                                                       time_extracted)
+         else:
+            select_sql      = """SELECT {}
+                                 FROM {}.{}
+                                 ORDER BY {} ASC
+                                 """.format(','.join(escaped_columns),
+                                            escaped_schema, escaped_table,
+                                            replication_key)
 
-         singer.write_message(record_message)
-         rows_saved = rows_saved + 1
+         if incremental_limit:
+            # TODO: Limit is not valid SQL syntax for oracle. We must use `fetch`: https://docs.oracle.com/javadb/10.8.3.0/ref/rrefsqljoffsetfetch.html
+            # This may result in additional syntax changes being necessary depending on the version of oracle used in the source.
+            # I regularly encounter ORA-00933: SQL command not properly ended when adding FETCH NEXT or FETCH FIRST
+            select_sql += "FETCH FIRST {} ROWS ONLY".format(incremental_limit)
 
-         #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
-         #event worse would be allowing the NULL value to enter into the state
-         if record_message.record[replication_key] is not None:
-            state = singer.write_bookmark(state,
-                                          stream.tap_stream_id,
-                                          'replication_key_value',
-                                          record_message.record[replication_key])
+         rows_saved = 0
+         LOGGER.info("select %s", select_sql)
+         for row in cur.execute(select_sql):
+            record_message = common.row_to_singer_message(stream,
+                                                          row,
+                                                          stream_version,
+                                                          desired_columns,
+                                                          time_extracted)
 
-         if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
-             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+            singer.write_message(record_message)
+            rows_saved = rows_saved + 1
 
-         counter.increment()
+            #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
+            #event worse would be allowing the NULL value to enter into the state
+            if record_message.record[replication_key] is not None:
+               state = singer.write_bookmark(state,
+                                             stream.tap_stream_id,
+                                             'replication_key_value',
+                                             record_message.record[replication_key])
 
-   cur.close()
-   connection.close()
-   return state
+            if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
+               singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
+            counter.increment()
+
+            if incremental_limit is None or rows_saved < incremental_limit:
+                    iterate_limit = False
+
+      cur.close()
+      connection.close()
+      return state
 
 # Local Variables:
 # python-indent-offset: 3
