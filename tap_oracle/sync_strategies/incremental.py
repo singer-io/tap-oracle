@@ -48,7 +48,7 @@ def sync_table(conn_config, stream, state, desired_columns, incremental_limit):
    md = metadata.to_map(stream.metadata)
    schema_name = md.get(()).get('schema-name')
 
-   escaped_columns = map(lambda c: common.prepare_columns_sql(stream, c), desired_columns)
+   escaped_columns = ','.join(map(lambda c: common.prepare_columns_sql(stream, c), desired_columns))
    escaped_schema  = schema_name
    escaped_table   = stream.table
 
@@ -69,24 +69,19 @@ def sync_table(conn_config, stream, state, desired_columns, incremental_limit):
                                  FROM {}.{}
                                  WHERE {} >= {}
                                  ORDER BY {} ASC
-                                 """.format(','.join(escaped_columns),
-                                            escaped_schema, escaped_table,
-                                            replication_key, casted_where_clause_arg,
-                                            replication_key)
+                                 """.format(escaped_columns, escaped_schema,
+                                            escaped_table, replication_key,
+                                            casted_where_clause_arg, replication_key)
 
          else:
             select_sql      = """SELECT {}
                                  FROM {}.{}
                                  ORDER BY {} ASC
-                                 """.format(','.join(escaped_columns),
-                                            escaped_schema, escaped_table,
-                                            replication_key)
+                                 """.format(escaped_columns, escaped_schema,
+                                            escaped_table, replication_key)
 
          if incremental_limit:
-            # TODO: Limit is not valid SQL syntax for oracle. We must use `fetch`: https://docs.oracle.com/javadb/10.8.3.0/ref/rrefsqljoffsetfetch.html
-            # This may result in additional syntax changes being necessary depending on the version of oracle used in the source.
-            # I regularly encounter ORA-00933: SQL command not properly ended when adding FETCH NEXT or FETCH FIRST
-            select_sql += "FETCH FIRST {} ROWS ONLY".format(incremental_limit)
+            select_sql = "SELECT * FROM ({}) WHERE ROWNUM <= {}".format(select_sql, incremental_limit)
 
          rows_saved = 0
          LOGGER.info("select %s", select_sql)
@@ -113,12 +108,12 @@ def sync_table(conn_config, stream, state, desired_columns, incremental_limit):
 
             counter.increment()
 
-            if incremental_limit is None or rows_saved < incremental_limit:
-                    iterate_limit = False
+         if incremental_limit is None or rows_saved < incremental_limit:
+            iterate_limit = False
 
-      cur.close()
-      connection.close()
-      return state
+   cur.close()
+   connection.close()
+   return state
 
 # Local Variables:
 # python-indent-offset: 3
