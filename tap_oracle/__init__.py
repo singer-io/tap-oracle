@@ -355,7 +355,7 @@ def do_sync_incremental(conn_config, stream, state, desired_columns, incremental
 
    if incremental_limit:
       LOGGER.info("Stream %s is using incremental replication with replication key %s and optional limit %s",
-                  stream.tap_stream_id, replication_key, int(incremental_limit))
+                  stream.tap_stream_id, replication_key, incremental_limit)
    else:
       LOGGER.info("Stream %s is using incremental replication with replication key %s", stream.tap_stream_id, replication_key)
 
