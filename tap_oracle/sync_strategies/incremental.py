@@ -17,9 +17,14 @@ LOGGER = singer.get_logger()
 UPDATE_BOOKMARK_PERIOD = 1000
 
 
-def sync_table(conn_config, stream, state, desired_columns, incremental_limit):
+def sync_table(conn_config, stream, state, desired_columns):
    connection = orc_db.open_connection(conn_config)
    connection.outputtypehandler = common.OutputTypeHandler
+
+   if conn_config.get('incremental_limit'):
+      incremental_limit = int(conn_config['incremental_limit'])
+   else:
+      incremental_limit = None
 
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")

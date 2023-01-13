@@ -52,11 +52,11 @@ FLOAT_TYPES = set([
 ])
 
 REQUIRED_CONFIG_KEYS = [
-    'sid',
-    'host',
-    'port',
-    'user',
-    'password'
+   'sid',
+   'host',
+   'port',
+   'user',
+   'password'
 ]
 
 def nullable_column(col_name, col_type, pks_for_table):
@@ -346,16 +346,15 @@ def is_selected_via_metadata(stream):
    return table_md.get('selected')
 
 #Possible state keys: replication_key, replication_key_value, version
-def do_sync_incremental(conn_config, stream, state, desired_columns, incremental_limit):
-
+def do_sync_incremental(conn_config, stream, state, desired_columns):
    md_map = metadata.to_map(stream.metadata)
    replication_key = md_map.get((), {}).get('replication-key')
    if not replication_key:
       raise Exception("No replication key selected for key-based incremental replication")
 
-   if incremental_limit:
-      LOGGER.info("Stream %s is using incremental replication with replication key %s and optional limit %s",
-                  stream.tap_stream_id, replication_key, incremental_limit)
+   if conn_config.get('incremental_limit'):
+     LOGGER.info("Stream %s is using incremental replication with replication key %s and optional limit %s",
+                 stream.tap_stream_id, replication_key, conn_config['incremental_limit'])
    else:
       LOGGER.info("Stream %s is using incremental replication with replication key %s", stream.tap_stream_id, replication_key)
 
@@ -368,7 +367,7 @@ def do_sync_incremental(conn_config, stream, state, desired_columns, incremental
    state = singer.write_bookmark(state, stream.tap_stream_id, 'replication_key', replication_key)
 
    common.send_schema_message(stream, [replication_key])
-   state = incremental.sync_table(conn_config, stream, state, desired_columns, incremental_limit)
+   state = incremental.sync_table(conn_config, stream, state, desired_columns)
 
    return state
 
@@ -449,7 +448,7 @@ def sync_log_miner_streams(conn_config, log_miner_streams, state, end_scn):
 
    return state
 
-def sync_traditional_stream(conn_config, stream, state, sync_method, end_scn, incremental_limit):
+def sync_traditional_stream(conn_config, stream, state, sync_method, end_scn):
    LOGGER.info("Beginning sync of stream(%s) with sync method(%s)", stream.tap_stream_id, sync_method)
    md_map = metadata.to_map(stream.metadata)
    desired_columns = [c for c in stream.schema.properties.keys() if common.should_sync_column(md_map, c)]
@@ -485,7 +484,7 @@ def sync_traditional_stream(conn_config, stream, state, sync_method, end_scn, in
 
    elif sync_method == 'incremental':
       state = singer.set_currently_syncing(state, stream.tap_stream_id)
-      state = do_sync_incremental(conn_config, stream, state, desired_columns, incremental_limit)
+      state = do_sync_incremental(conn_config, stream, state, desired_columns)
 
    else:
       raise Exception("unknown sync method {} for stream {}".format(sync_method, stream.tap_stream_id))
@@ -503,7 +502,7 @@ def any_logical_streams(streams, default_replication_method):
 
     return False
 
-def do_sync(conn_config, catalog, default_replication_method, state, incremental_limit):
+def do_sync(conn_config, catalog, default_replication_method, state):
    currently_syncing = singer.get_currently_syncing(state)
    streams = list(filter(is_selected_via_metadata, catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
@@ -530,7 +529,7 @@ def do_sync(conn_config, catalog, default_replication_method, state, incremental
       LOGGER.info("No currently_syncing found")
 
    for stream in traditional_streams:
-      state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id], end_scn, incremental_limit)
+      state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id], end_scn)
 
    state = sync_log_miner_streams(conn_config, list(logical_streams), state, end_scn)
    return state
@@ -543,10 +542,12 @@ def main_impl():
                   'port': args.config['port'],
                   'sid':  args.config['sid']}
 
+   if args.config.get('incremental_limit'):
+      conn_config['incremental_limit'] = args.config.get('incremental_limit')
+
    if args.config.get('scn_window_size'):
       log_miner.SCN_WINDOW_SIZE=int(args.config['scn_window_size'])
-   if args.config.get('incremental_limit'):
-      incremental_limit = int(args.config.get('incremental_limit'))
+
    if args.discover:
       filter_schemas_prop = args.config.get('filter_schemas')
       filter_schemas = []
@@ -556,7 +557,7 @@ def main_impl():
 
    elif args.catalog:
       state = args.state
-      do_sync(conn_config, args.catalog, args.config.get('default_replication_method'), state, incremental_limit)
+      do_sync(conn_config, args.catalog, args.config.get('default_replication_method'), state)
    else:
       LOGGER.info("No properties were selected")
 
