@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.0
+ * Adds rownum queries to be used with incremental_limit config value [#35](https://github.com/singer-io/tap-oracle/pull/35)
+
 ## 1.1.2
  * Log value of mine_sql [#30](https://github.com/singer-io/tap-oracle/pull/30)
 
