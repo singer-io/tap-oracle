@@ -21,6 +21,11 @@ def sync_table(conn_config, stream, state, desired_columns):
    connection = orc_db.open_connection(conn_config)
    connection.outputtypehandler = common.OutputTypeHandler
 
+   if conn_config.get('incremental_limit'):
+      incremental_limit = int(conn_config['incremental_limit'])
+   else:
+      incremental_limit = None
+
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
    cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS."00+00:00"'""")
@@ -48,7 +53,7 @@ def sync_table(conn_config, stream, state, desired_columns):
    md = metadata.to_map(stream.metadata)
    schema_name = md.get(()).get('schema-name')
 
-   escaped_columns = map(lambda c: common.prepare_columns_sql(stream, c), desired_columns)
+   escaped_columns = ','.join(map(lambda c: common.prepare_columns_sql(stream, c), desired_columns))
    escaped_schema  = schema_name
    escaped_table   = stream.table
 
@@ -58,51 +63,58 @@ def sync_table(conn_config, stream, state, desired_columns):
    replication_key_value = singer.get_bookmark(state, stream.tap_stream_id, 'replication_key_value')
    replication_key_sql_datatype = md.get(('properties', replication_key)).get('sql-datatype')
 
-   with metrics.record_counter(None) as counter:
-      if replication_key_value:
-         LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
-         casted_where_clause_arg = common.prepare_where_clause_arg(replication_key_value, replication_key_sql_datatype)
+   iterate_limit = True
+   while iterate_limit:
+      with metrics.record_counter(None) as counter:
+         if replication_key_value:
+            LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
+            casted_where_clause_arg = common.prepare_where_clause_arg(replication_key_value, replication_key_sql_datatype)
 
-         select_sql      = """SELECT {}
-                                FROM {}.{}
-                               WHERE {} >= {}
-                               ORDER BY {} ASC
-                                """.format(','.join(escaped_columns),
-                                           escaped_schema, escaped_table,
-                                           replication_key, casted_where_clause_arg,
-                                           replication_key)
-      else:
-         select_sql      = """SELECT {}
-                                FROM {}.{}
-                               ORDER BY {} ASC
-                               """.format(','.join(escaped_columns),
-                                          escaped_schema, escaped_table,
-                                          replication_key)
+            select_sql      = """SELECT {}
+                                 FROM {}.{}
+                                 WHERE {} >= {}
+                                 ORDER BY {} ASC
+                                 """.format(escaped_columns, escaped_schema,
+                                            escaped_table, replication_key,
+                                            casted_where_clause_arg, replication_key)
 
-      rows_saved = 0
-      LOGGER.info("select %s", select_sql)
-      for row in cur.execute(select_sql):
-         record_message = common.row_to_singer_message(stream,
-                                                       row,
-                                                       stream_version,
-                                                       desired_columns,
-                                                       time_extracted)
+         else:
+            select_sql      = """SELECT {}
+                                 FROM {}.{}
+                                 ORDER BY {} ASC
+                                 """.format(escaped_columns, escaped_schema,
+                                            escaped_table, replication_key)
 
-         singer.write_message(record_message)
-         rows_saved = rows_saved + 1
+         if incremental_limit:
+            select_sql = "SELECT * FROM ({}) WHERE ROWNUM <= {}".format(select_sql, incremental_limit)
 
-         #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
-         #event worse would be allowing the NULL value to enter into the state
-         if record_message.record[replication_key] is not None:
-            state = singer.write_bookmark(state,
-                                          stream.tap_stream_id,
-                                          'replication_key_value',
-                                          record_message.record[replication_key])
+         rows_saved = 0
+         LOGGER.info("select %s", select_sql)
+         for row in cur.execute(select_sql):
+            record_message = common.row_to_singer_message(stream,
+                                                          row,
+                                                          stream_version,
+                                                          desired_columns,
+                                                          time_extracted)
 
-         if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
-             singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+            singer.write_message(record_message)
+            rows_saved = rows_saved + 1
 
-         counter.increment()
+            #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
+            #event worse would be allowing the NULL value to enter into the state
+            if record_message.record[replication_key] is not None:
+               state = singer.write_bookmark(state,
+                                             stream.tap_stream_id,
+                                             'replication_key_value',
+                                             record_message.record[replication_key])
+
+            if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
+               singer.write_message(singer.StateMessage(value=copy.deepcopy(state)))
+
+            counter.increment()
+
+         if incremental_limit is None or rows_saved < incremental_limit:
+            iterate_limit = False
 
    cur.close()
    connection.close()
