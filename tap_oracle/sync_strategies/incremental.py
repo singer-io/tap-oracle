@@ -60,11 +60,11 @@ def sync_table(conn_config, stream, state, desired_columns):
 
    replication_key = md.get((), {}).get('replication-key')
    #escaped_replication_key = common.prepare_columns_sql(stream, replication_key)
-   replication_key_value = singer.get_bookmark(state, stream.tap_stream_id, 'replication_key_value')
    replication_key_sql_datatype = md.get(('properties', replication_key)).get('sql-datatype')
 
    iterate_limit = True
    while iterate_limit:
+      replication_key_value = singer.get_bookmark(state, stream.tap_stream_id, 'replication_key_value')
       with metrics.record_counter(None) as counter:
          if replication_key_value:
             LOGGER.info("Resuming Incremental replication from %s = %s", replication_key, replication_key_value)
