@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+ * Fixes an issue where incremental limit queries would not use the latest replication_key_value from state [#39](https://github.com/singer-io/tap-oracle/pull/39)
+
 ## 1.2.0
  * Adds rownum queries to be used with incremental_limit config value [#35](https://github.com/singer-io/tap-oracle/pull/35)
 
