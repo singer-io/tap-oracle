@@ -5,6 +5,7 @@ import singer.metadata as metadata
 from singer.schema import Schema
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.common as common
+import tap_oracle.sync_strategies.helper as helper
 import singer.metrics as metrics
 import copy
 import pdb
@@ -144,7 +145,7 @@ def sync_table(conn_config, stream, state, desired_columns):
                                                        desired_columns,
                                                        time_extracted)
 
-         singer.write_message(record_message)
+         helper.write_message(record_message, ensure_ascii=False)
          state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', ora_rowscn)
          rows_saved = rows_saved + 1
          if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:
