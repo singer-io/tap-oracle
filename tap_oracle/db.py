@@ -11,5 +11,9 @@ def make_dsn(config):
 
 def open_connection(config):
     LOGGER.info("dsn: %s", make_dsn(config))
-    conn = cx_Oracle.connect(config["user"], config["password"], make_dsn(config))
+    conn = cx_Oracle.connect(config["user"], 
+                             config["password"], 
+                             make_dsn(config), 
+                             encoding='UTF-8',     # Specify the encoding for the connection
+                             )
     return conn
