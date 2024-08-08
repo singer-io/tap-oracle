@@ -13,7 +13,6 @@ import pdb
 import pytz
 import time
 import tap_oracle.sync_strategies.common as common
-import tap_oracle.sync_strategies.helper as helper
 
 LOGGER = singer.get_logger()
 
@@ -175,7 +174,7 @@ def sync_tables_logminer(cur, streams, state, start_scn, end_scn):
             else:
                raise Exception("unrecognized logminer operation: {}".format(op))
 
-            helper.write_message(record_message, ensure_ascii=False)
+            singer.write_message(record_message, ensure_ascii=False)
             rows_saved = rows_saved + 1
             counter.increment()
             state = singer.write_bookmark(state,
