@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.0
+ * Set utf-8 encoding while connecting to the oracle DB and load the non-ascii characters to target (if any) [#41](https://github.com/singer-io/tap-oracle/pull/41)
+
 ## 1.2.1
  * Fixes an issue where incremental limit queries would not use the latest replication_key_value from state [#39](https://github.com/singer-io/tap-oracle/pull/39)
 
