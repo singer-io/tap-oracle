@@ -13,6 +13,11 @@ setup(name='tap-oracle',
           'cx_Oracle==6.1',
           'strict-rfc3339==0.7'
       ],
+      extras_require={
+        'dev': [
+            'pylint',
+        ]
+      },
       entry_points='''
           [console_scripts]
           tap-oracle=tap_oracle:main
