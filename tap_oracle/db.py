@@ -14,6 +14,6 @@ def open_connection(config):
     conn = cx_Oracle.connect(config["user"], 
                              config["password"], 
                              make_dsn(config), 
-                             encoding='UTF-8',     # Specify the encoding for the connection
-                             )
+                             encoding='UTF-8',)     # Specify the encoding for the connection
+                             
     return conn
