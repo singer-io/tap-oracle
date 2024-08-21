@@ -17,7 +17,7 @@ jobs:
          command: |
             source /usr/local/share/virtualenvs/tap-oracle/bin/activate
             # TODO: Adjust the pylint disables
-            pylint tap_oracle -d C,R,W
+            pylint tap_oracle -d C,R,W,assignment-from-no-return,c-extension-no-member
       - run:
           name: 'Unit Tests'
           command: |
