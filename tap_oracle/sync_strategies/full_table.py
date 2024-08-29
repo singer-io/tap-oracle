@@ -144,7 +144,7 @@ def sync_table(conn_config, stream, state, desired_columns):
                                                        desired_columns,
                                                        time_extracted)
 
-         singer.write_message(record_message)
+         singer.write_message(record_message, ensure_ascii=False)
          state = singer.write_bookmark(state, stream.tap_stream_id, 'ORA_ROWSCN', ora_rowscn)
          rows_saved = rows_saved + 1
          if rows_saved % UPDATE_BOOKMARK_PERIOD == 0:

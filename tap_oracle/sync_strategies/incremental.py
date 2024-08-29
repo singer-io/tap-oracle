@@ -97,7 +97,7 @@ def sync_table(conn_config, stream, state, desired_columns):
                                                           desired_columns,
                                                           time_extracted)
 
-            singer.write_message(record_message)
+            singer.write_message(record_message, ensure_ascii=False)
             rows_saved = rows_saved + 1
 
             #Picking a replication_key with NULL values will result in it ALWAYS been synced which is not great
