@@ -2,16 +2,16 @@ version: 2
 jobs:
   build:
     docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:stitch-tap-tester
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:stitch-tap-tester-uv
     steps:
       - checkout
       - run:
           name: 'Setup virtual env'
           command: |
-            python3 -mvenv /usr/local/share/virtualenvs/tap-oracle
+            uv venv --python 3.9 /usr/local/share/virtualenvs/tap-oracle
             source /usr/local/share/virtualenvs/tap-oracle/bin/activate
-            pip install -U pip setuptools
-            pip install .[dev]
+            uv pip install -U pip setuptools
+            uv pip install .[dev]
       - run:
          name: 'pylint'
          command: |
