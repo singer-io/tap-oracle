@@ -313,7 +313,7 @@ def do_discovery(conn_config, filter_schemas):
 
       is_view = False
       table_info[schema][table] = {
-         'row_count': row_counts[table],
+         'row_count': row_counts.get(table, 0),
          'is_view': is_view
       }
 
